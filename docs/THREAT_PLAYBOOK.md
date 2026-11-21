@@ -39,12 +39,12 @@ live indicator is carried into the codebase.
 
 1. **IOC collection** — add `indicators` and `sightings` collections to
    `control/store.py`, with typed records (ip, domain, hash, certificate,
-   title), confidence and source. Expose `/api/indicators` and a console tab.
+   title), confidence and source. Expose `/v1/indicators` and a console tab.
 2. **Exposure checks** — a read-only adapter that reports whether an
    engagement's own admin services are publicly reachable and whether any
    workspace file matches credential shapes. Never auto-remediate.
 3. **ATT&CK mapping** — attach technique IDs to event kinds and tool names,
-   then render a coverage matrix from `/api/events`.
+   then render a coverage matrix from `/v1/events`.
 4. **Retest hardening** — bind each retest to the exact exchange used by the
    original finding and refuse a verdict when the proof body changed.
 5. **Proxy hygiene** — flag proxy endpoints that expose many identities and

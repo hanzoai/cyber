@@ -39,9 +39,9 @@ spec:
                   key: hanzo-token
           readinessProbe:
             httpGet:
-              path: /api/health
+              path: /v1/health
               port: 8787
           livenessProbe:
             httpGet:
-              path: /api/health
+              path: /v1/health
               port: 8787

@@ -17,7 +17,10 @@ These are read by the Python server, doctor, and CLI processes inside the contai
 | Variable | Default | Read by | Effect |
 | --- | --- | --- | --- |
 | `OPENCYBER_WORKSPACE` | `/workspace` | `engagements.py` at import | Root of the engagement store: `<root>/engagements/<engagement_id>`. |
-| `OPENCYBER_MCP_MODE` | `full` | `server.py` at import | `compact` advertises only the 82 native tools; any other value uses the full or category-selected catalog. |
+| `OPENCYBER_MCP_MODE` | `full` | `server.py` at import | `compact` advertises only the native tools; any other value uses the full or category-selected catalog. |
+| `OPENCYBER_CONTROL_PORT` | `8787` | `control/api.py` at import | Port the control-plane HTTP surface binds to. |
+| `OPENCYBER_CONTROL_ALLOW_REMOTE` | off | `control/api.py` per request | Allows non-loopback clients when no operator token is set. Used only by the local `hanzo up` overlay; production uses IAM. |
+| `OPENCYBER_LOCAL_PORT` | `8788` | `scripts/hanzo-up-local.sh` | Host port forwarded to the in-cluster control Service. |
 | `OPENCYBER_TOOL_CATEGORIES` | empty (all) | `server.py` at import | Comma-separated executable categories to advertise individually. Ignored in compact mode. |
 | `OPENCYBER_ENFORCE_SCOPE` | off | `policy.py` per call | Enables argv scope checks for executable-backed tools and host checks for native HTTP tools. Native HTTP calls then require `engagement_id`. |
 | `OPENCYBER_ALLOW_UNSCOPED_EXECUTION` | off | `policy.py` per call | Under scope enforcement, allows `oc_bash` and `oc_python` to run without a target check. |

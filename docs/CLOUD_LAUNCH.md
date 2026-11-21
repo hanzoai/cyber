@@ -47,7 +47,7 @@ the cluster runner through `platform.hanzo.ai`, not a laptop.
 
 ## API
 
-`POST /api/cloud/launch`
+`POST /v1/cloud/launch`
 
 ```json
 {
@@ -67,11 +67,11 @@ control plane. `HANZO_API_KEY` is handled the same way.
 
 Other routes:
 
-- `GET /api/cloud/config` — platform URL, IAM readiness, profiles, default image
-- `GET /api/cloud/launches` — launch records (never secret values)
-- `GET /api/cloud/launches/:id/status` — live platform status and last deployments
-- `GET /api/cloud/launches/:id/logs` — deployment logs
-- `POST /api/cloud/launches/:id/stop` — stop the application
+- `GET /v1/cloud/config` — platform URL, IAM readiness, profiles, default image
+- `GET /v1/cloud/launches` — launch records (never secret values)
+- `GET /v1/cloud/launches/:id/status` — live platform status and last deployments
+- `GET /v1/cloud/launches/:id/logs` — deployment logs
+- `POST /v1/cloud/launches/:id/stop` — stop the application
 
 Re-launching the same `name` converges the existing Application in place.
 

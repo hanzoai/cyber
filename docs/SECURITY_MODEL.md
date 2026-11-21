@@ -172,7 +172,7 @@ Audit redaction is not evidence redaction. These artifacts can contain live cred
 
 - HTTP workbench session state and complete request/response history, including headers, cookies, and bodies.
 - Browser cookies, local storage, session storage, screenshots, DOM snapshots, and the browser network log.
-- API audit and fuzz evidence under `evidence/api/`.
+- API audit and fuzz evidence under `evidence/v1/`.
 - Workspace files, findings, and firmware reports.
 - Serial transcripts, which may include boot secrets or console credentials.
 - PoC run evidence under `poc/runs/`: transcripts redact `Authorization`, `Cookie`, `Set-Cookie`, and API-key headers, but response bodies and target content are kept, and `poc/code/` holds the rendered or custom verifier source.

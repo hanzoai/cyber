@@ -165,7 +165,7 @@ oc_http_repeater(
   engagement_id="eng_...",
   session_id="http_...",
   method="GET",
-  url="/api/users?id=1",
+  url="/v1/users?id=1",
   headers={"X-Test": "1"}
 )
 ```
@@ -177,7 +177,7 @@ oc_http_intruder(
   engagement_id="eng_...",
   session_id="http_...",
   method="GET",
-  url="/api/users?id=1",
+  url="/v1/users?id=1",
   location="query",
   parameter="id",
   payloads=["1", "1'", "1 OR 1=1"],
@@ -205,7 +205,7 @@ oc_jwt_audit(engagement_id="eng_...", token="eyJ...")
 oc_api_fuzz(
   engagement_id="eng_...",
   base_url="https://app.example.com",
-  path="/api/users",
+  path="/v1/users",
   method="GET",
   location="query",
   parameter="id",
@@ -214,7 +214,7 @@ oc_api_fuzz(
 )
 ```
 
-`source` may be a URL or an engagement-relative file. `oc_openapi_inspect` is an operation-inventory helper. The audit tools persist their results as JSON evidence under `evidence/api/` and report evidence-backed review items, not proof of a vulnerability. `oc_api_fuzz` accepts `query`, `header`, `body`, `path`, or `json` as the location. JWT signature verification is never implied.
+`source` may be a URL or an engagement-relative file. `oc_openapi_inspect` is an operation-inventory helper. The audit tools persist their results as JSON evidence under `evidence/v1/` and report evidence-backed review items, not proof of a vulnerability. `oc_api_fuzz` accepts `query`, `header`, `body`, `path`, or `json` as the location. JWT signature verification is never implied.
 
 **Scope:** native HTTP/API tools check the engagement target before each request and redirect hop when `OPENCYBER_ENFORCE_SCOPE=1`, and require `engagement_id`. Browser tools remain outside this control. A hard egress boundary still requires network policy.
 

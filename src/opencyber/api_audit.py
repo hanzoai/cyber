@@ -67,7 +67,7 @@ def _load_json(engagement_id: str, source: str, timeout: float | None = None) ->
 
 def _persist(engagement_id: str, kind: str, result: dict[str, Any]) -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    path = f"evidence/api/{kind}-{stamp}-{uuid.uuid4().hex[:8]}.json"
+    path = f"evidence/v1/{kind}-{stamp}-{uuid.uuid4().hex[:8]}.json"
     write_workspace_file(engagement_id, path, json.dumps(result, indent=2, sort_keys=True) + "\n")
     return path
 

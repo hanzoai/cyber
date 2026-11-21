@@ -22,14 +22,14 @@ done
 kubectl --kubeconfig "$KUBECONFIG_FILE" get nodes
 
 echo ">> start control plane on 0.0.0.0:${PORT}"
-if ! curl -fsS "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+if ! curl -fsS "http://127.0.0.1:${PORT}/v1/health" >/dev/null 2>&1; then
   OPENCYBER_WORKSPACE="${OPENCYBER_WORKSPACE:-/workspace}" \
   OPENCYBER_CONTROL_ALLOW_REMOTE=1 \
     "$ROOT/.venv/bin/opencyber-control" --host 0.0.0.0 --port "$PORT" \
     > "${TMPDIR:-/tmp}/opencyber-control.log" 2>&1 &
 fi
 for _ in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then break; fi
+  if curl -fsS "http://127.0.0.1:${PORT}/v1/health" >/dev/null 2>&1; then break; fi
   sleep 1
 done
 
@@ -43,10 +43,10 @@ kubectl --kubeconfig "$KUBECONFIG_FILE" -n cyber port-forward svc/cyber-control 
   > "${TMPDIR:-/tmp}/opencyber-portforward.log" 2>&1 &
 
 for _ in $(seq 1 20); do
-  if curl -fsS "http://127.0.0.1:${LOCAL_PORT}/api/health" >/dev/null 2>&1; then break; fi
+  if curl -fsS "http://127.0.0.1:${LOCAL_PORT}/v1/health" >/dev/null 2>&1; then break; fi
   sleep 1
 done
-curl -fsS "http://127.0.0.1:${LOCAL_PORT}/api/health"
+curl -fsS "http://127.0.0.1:${LOCAL_PORT}/v1/health"
 
 echo "OpenCyber Control: http://127.0.0.1:${LOCAL_PORT}/"
 echo "Logs:              ${TMPDIR:-/tmp}/opencyber-control.log"

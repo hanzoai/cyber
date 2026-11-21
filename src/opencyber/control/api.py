@@ -1951,7 +1951,7 @@ def create_app(
         finally:
             console.runner.stop()
 
-    app = Starlette(routes=[Route("/", index), Route("/ui", index), Mount("/static", StaticFiles(directory=str(STATIC)), name="static"), Mount("/api", routes=build_routes(console), name="api")], lifespan=lifespan)
+    app = Starlette(routes=[Route("/", index), Route("/ui", index), Mount("/static", StaticFiles(directory=str(STATIC)), name="static"), Mount("/v1", routes=build_routes(console), name="v1")], lifespan=lifespan)
     app.state.console = console
     return app
 

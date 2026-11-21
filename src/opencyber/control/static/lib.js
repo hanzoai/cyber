@@ -267,7 +267,7 @@ async function request(method, path, body, params) {
   const headers = { accept: "application/json" };
   if (state.token) headers.authorization = "Bearer " + state.token;
   if (body !== undefined) headers["content-type"] = "application/json";
-  const response = await fetch("/api" + path + qs(params), {
+  const response = await fetch("/v1" + path + qs(params), {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -291,7 +291,7 @@ export const api = {
   download(path, params) {
     const search = new URLSearchParams({ ...(params || {}) });
     if (state.engagement && !search.has("engagement_id")) search.set("engagement_id", state.engagement);
-    return fetch("/api" + path + "?" + search.toString(), {
+    return fetch("/v1" + path + "?" + search.toString(), {
       headers: state.token ? { authorization: "Bearer " + state.token } : {},
     });
   },

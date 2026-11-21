@@ -1,0 +1,26 @@
+# Hanzo CD Application for `hanzo up` / platform fleet.
+# Declares the cyber control plane as an image-source app in tenant-<org>.
+apiVersion: apps.hanzo.ai/v1
+kind: Application
+metadata:
+  name: cyber-control
+  namespace: hanzo-platform
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/hanzoai/opencyber
+    targetRevision: main
+    path: deploy/hanzo-up/workload
+    directory:
+      recurse: false
+      include: "{namespace.yaml,deployment.yaml,service.yaml,ingressroute.yaml}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cyber
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=true

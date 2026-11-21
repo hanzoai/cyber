@@ -1,0 +1,27 @@
+# Control-plane image for cloud launch.
+#
+# The base image already carries the MCP harness, the security binaries and the
+# offline assets. This layer adds the Starlette control plane and its operator
+# console, and exposes the single port the platform run needs. Build and publish
+# through the cluster runner (platform.hanzo.ai), never from a laptop.
+#
+#   docker build -f Dockerfile.control -t ghcr.io/hanzoai/opencyber-control:1.0.0-beta.1 .
+
+ARG BASE=ghcr.io/mitkox/opencyber:1.0.0-beta.1
+FROM ${BASE}
+
+USER root
+
+COPY pyproject.toml README.md /opt/opencyber/
+COPY src/opencyber /opt/opencyber/src/opencyber
+
+RUN python -m pip install --no-cache-dir /opt/opencyber \
+    && mkdir -p /workspace
+
+ENV OPENCYBER_CONTROL_HOST=0.0.0.0 \
+    OPENCYBER_CONTROL_PORT=8787 \
+    OPENCYBER_STATE_BACKEND=base
+
+EXPOSE 8787
+
+CMD ["opencyber-control", "--host", "0.0.0.0", "--port", "8787"]

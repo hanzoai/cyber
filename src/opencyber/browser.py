@@ -14,6 +14,8 @@ import uuid
 from .audit import safe_record
 from .engagements import get_engagement, resolve_engagement_path
 from .errors import OcError
+from .policy import enforce_url_scope
+from urllib.parse import urlparse
 
 
 DEFAULT_TIMEOUT_MS = 30_000
@@ -21,6 +23,36 @@ MAX_TIMEOUT_MS = 120_000
 MAX_NETWORK_EVENTS = 1_000
 DEFAULT_NETWORK_PAGE = 500
 MAX_NETWORK_PAGE = 1_000
+
+
+_CONTROL_STORE: Any = None
+
+
+def _control_store() -> Any:
+    """Lazy store for the engagement blocklist; the browser never persisted state here."""
+    global _CONTROL_STORE
+    if _CONTROL_STORE is None:
+        from .control.store import open_store
+
+        _CONTROL_STORE = open_store()
+    return _CONTROL_STORE
+
+
+def _check_target(engagement_id: str, url: str, tool: str) -> None:
+    """Apply the same scope and blocklist checks a native HTTP tool gets."""
+    if not url.lower().startswith(("http://", "https://")):
+        return
+    enforce_url_scope(engagement_id, url, tool=tool)
+    from .control.intercept import blocked_target
+
+    host = urlparse(url).hostname or ""
+    blocked = blocked_target(_control_store(), engagement_id, host, url)
+    if blocked:
+        raise OcError(
+            "scope_denied",
+            f"target blocklist refused {blocked.get('pattern')}",
+            details={"tool": tool, "url": url, "blocked_target": blocked.get("pattern")},
+        )
 
 
 def _validate_timeout(timeout_ms: int) -> int:
@@ -204,8 +236,16 @@ class BrowserManager:
             url = request.url
             for rule in session.url_replacements:
                 url = url.replace(rule["match"], rule["replace"])
-            headers = {**request.headers, **session.extra_headers}
-            await route.continue_(url=url, headers=headers)
+            try:
+                _check_target(session.engagement_id, url, "oc_browser_request")
+            except OcError:
+                await route.abort()
+                return
+            from .control.governor import governor
+
+            with governor().slot(url):
+                headers = {**request.headers, **session.extra_headers}
+                await route.continue_(url=url, headers=headers)
 
         page.on("request", on_request)
         page.on("response", on_response)
@@ -253,7 +293,13 @@ class BrowserManager:
         timeout_ms: int = DEFAULT_TIMEOUT_MS,
     ) -> dict[str, Any]:
         session = self._get(engagement_id, session_id)
-        response = await session.page.goto(url, wait_until=wait_until, timeout=_validate_timeout(timeout_ms))
+        _validate_timeout(timeout_ms)
+        _check_target(engagement_id, url, "oc_browser_navigate")
+        from .control.governor import governor
+
+        with governor().slot(url):
+            response = await session.page.goto(url, wait_until=wait_until, timeout=timeout_ms)
+        governor().observe(url, response.status if response else 0)
         result = {
             "engagement_id": engagement_id,
             "session_id": session_id,

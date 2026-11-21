@@ -2,10 +2,10 @@
 
 # Tool reference
 
-OpenCyber Harness 1.0.0-beta.1 exposes **253 MCP tools**:
-171 executable-backed tools and 82 native tools.
+OpenCyber Harness 1.0.0-beta.1 exposes **271 MCP tools**:
+171 executable-backed tools and 100 native tools.
 
-Contract digest: `d1fb0fec454e3c637c4ebc107afc15cedaca0b3e1e193c9377631b8feed45281`. A running server reports the digest it
+Contract digest: `ae1da77d082433e47e129b24b4f920e9f2b7a33cf947b3779967d8c4e7d2a726`. A running server reports the digest it
 actually advertises with `oc_catalog`, so a stale container or a modified
 registration is detectable. Pass `expected_catalog_digest` to `oc_catalog`
 to pin the contract a client was built against.
@@ -32,18 +32,18 @@ the advertised executable set; it has no effect in compact mode.
 | Task shape | Tools |
 | --- | ---: |
 | `execute` | 175 |
-| `inspect` | 41 |
+| `inspect` | 46 |
 | `manage` | 15 |
-| `observe` | 9 |
-| `search` | 5 |
-| `workflow` | 8 |
+| `observe` | 10 |
+| `search` | 6 |
+| `workflow` | 19 |
 
 | Effect | Tools |
 | --- | ---: |
 | `device` | 74 |
-| `filesystem` | 226 |
-| `mutation` | 210 |
-| `network` | 125 |
+| `filesystem` | 244 |
+| `mutation` | 222 |
+| `network` | 127 |
 | `process` | 194 |
 | `secret` | 5 |
 
@@ -365,9 +365,10 @@ documented helper programs.
 | assets | 2 |
 | blue_team | 7 |
 | poc_chain | 8 |
+| control_plane | 18 |
 | diagnostics | 1 |
 
-**Total: 82**
+**Total: 100**
 
 ### native_and_workspace
 
@@ -509,6 +510,29 @@ documented helper programs.
 | `oc_poc_lint` | inspect | none | engagement | Static review of a PoC spec and its code: engagement scope for every host, supported technique class, hard request/time/output caps, and forbidden destructive or weaponized patterns. Returns blocking findings, warnings, and per-host scope verdicts. Signed-authorization coverage is enforced at run time, not here. Best-effort defense in depth, not a sandbox. |
 | `oc_poc_run` | execute | `filesystem`, `mutation`, `network`, `process` | engagement | Execute one approved PoC spec. Requires a complete chain, a valid signed authorization covering the target and technique, and a signed single-use approval whose spec/code hashes still match; re-lints and preflights scope, then runs under hard limits and captures evidence. Refusals return a machine-readable reason. Never bypass the gate. |
 | `oc_poc_evidence` | inspect | `filesystem` | engagement | List PoC runs in the engagement with verdict and evidence paths, or read one run's structured result and artifacts when run_id is supplied. |
+
+### control_plane
+
+| Tool | Shape | Effects | Scope | Description |
+| --- | --- | --- | --- | --- |
+| `oc_control_dashboard` | inspect | `filesystem` | engagement | Return the control-plane engagement overview: task, finding, asset and traffic counts, severity breakdown, model usage, governor state and recent events. |
+| `oc_task_create` | workflow | `filesystem`, `mutation` | engagement | Create an autonomous, engagement-scoped task with its own budgets, scope, LLM profiles and operator approval rules. By default it is queued for the control-plane scheduler. |
+| `oc_task_list` | search | `filesystem` | engagement | List control-plane tasks with status, finding counts, token usage and remaining budget. Filter by status or category. |
+| `oc_task_get` | inspect | `filesystem` | engagement | Read one control-plane task: its intents, graph, coverage, findings, usage, budget and pending approvals. |
+| `oc_task_control` | workflow | `filesystem`, `mutation` | engagement | Change a task's lifecycle: start, queue, pause, resume, stop, archive, restore or run one planner/worker step. |
+| `oc_task_chat` | workflow | `filesystem`, `mutation` | engagement | Inject an operator hint into a task and its exploration graph. Target output is always treated as untrusted data. |
+| `oc_task_intent` | workflow | `filesystem`, `mutation` | engagement | Propose a new intent for a task. It enters the planner's queue as an operator-sourced direction and is linked to the goal node. |
+| `oc_finding_create` | workflow | `filesystem`, `mutation` | engagement | Record a security finding in control-plane state. Verification requires separately bound traffic and verbatim quotes. |
+| `oc_finding_verify` | workflow | `filesystem`, `mutation` | engagement | Check a finding's verbatim quotes against its bound captured responses. Missing quotes block verification and are named in the result. |
+| `oc_finding_retest` | workflow | `filesystem`, `mutation` | engagement | Queue a retest for a finding so its original proof is re-run and a verdict recorded independently of the original worker. |
+| `oc_traffic_ingest` | workflow | `filesystem`, `mutation` | engagement | Record captured HTTP exchanges in control-plane state, with bounded bodies, base64 decoding and per-engagement ingest caps. |
+| `oc_traffic_replay` | observe | `filesystem`, `mutation`, `network` | url | Replay a captured exchange through the engagement scope check, target blocklist and request noise governor, then record the new exchange. |
+| `oc_graph_coverage` | inspect | `filesystem` | engagement | Report the engagement's asset coverage for a task. Tested means an intent or finding anchored the asset, not that a tool proved every endpoint. |
+| `oc_intercept_rule` | workflow | `filesystem`, `mutation` | engagement | Add an operator approval rule that asks, allows or denies tool calls matching a name, argument, host or URL pattern. |
+| `oc_approval_decide` | workflow | `filesystem`, `mutation` | engagement | Record a human decision on a pending tool approval. The agent only resumes when a decision is persisted. |
+| `oc_llm_profiles` | inspect | `filesystem` | engagement | List configured LLM profiles, their failover order and which ones are currently usable. |
+| `oc_control_settings` | inspect | `filesystem` | engagement | Read effective control-plane settings, worker concurrency and request noise governor state. |
+| `oc_notify_retry` | workflow | `filesystem`, `mutation`, `network` | engagement | Retry failed notification deliveries for configured channels. |
 
 ### diagnostics
 

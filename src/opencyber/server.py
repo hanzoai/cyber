@@ -848,6 +848,211 @@ def oc_poc_evidence(engagement_id: str, run_id: str = "") -> dict[str, Any]:
         return _poc_refusal(exc)
 
 
+# --- control plane -----------------------------------------------------------
+
+_CONTROL_STORE: Any = None
+
+
+def _control_store() -> Any:
+    global _CONTROL_STORE
+    if _CONTROL_STORE is None:
+        from .control.store import open_store
+
+        _CONTROL_STORE = open_store()
+    return _CONTROL_STORE
+
+
+@mcp.tool(name="oc_control_dashboard", description="Return the control-plane engagement overview: task, finding, asset and traffic counts, severity breakdown, model usage, governor state and recent events.", structured_output=True)
+async def oc_control_dashboard(engagement_id: str = "") -> dict[str, Any]:
+    from .control import engine as control_engine
+
+    return await asyncio.to_thread(control_engine.dashboard, _control_store(), engagement_id or None)
+
+
+@mcp.tool(name="oc_task_create", description="Create an autonomous, engagement-scoped task with its own budgets, scope, LLM profiles and operator approval rules. By default it is queued for the control-plane scheduler.", structured_output=True)
+async def oc_task_create(engagement_id: str, goal: str, name: str = "", description: str = "", category: str = "", scope: list[str] | None = None, budgets: dict[str, Any] | None = None, start: bool = False) -> dict[str, Any]:
+    return await asyncio.to_thread(_create_task_compat, engagement_id, goal, name, description, category, scope, budgets, start)
+
+
+def _create_task_compat(engagement_id: str, goal: str, name: str, description: str, category: str, scope: list[str] | None, budgets: dict[str, Any] | None, start: bool) -> dict[str, Any]:
+    from .control import engine as control_engine
+
+    store = _control_store()
+    task = control_engine.create_task(store, engagement_id, goal, description=description, name=name, category=category, budgets=budgets or {}, scope=scope or [])
+    if start:
+        control_engine.start(store, task["id"])
+    return task
+
+
+@mcp.tool(name="oc_task_list", description="List control-plane tasks with status, finding counts, token usage and remaining budget. Filter by status or category.", structured_output=True)
+async def oc_task_list(engagement_id: str = "", status: str = "", category: str = "", limit: int = 100) -> dict[str, Any]:
+    store = _control_store()
+    rows = await asyncio.to_thread(store.list, "tasks", {"engagement_id": engagement_id} if engagement_id else {}, order="-created")
+    if status:
+        rows = [row for row in rows if row["status"] == status]
+    if category:
+        rows = [row for row in rows if row.get("category") == category]
+    return {"tasks": rows[:limit], "total": len(rows)}
+
+
+@mcp.tool(name="oc_task_get", description="Read one control-plane task: its intents, graph, coverage, findings, usage, budget and pending approvals.", structured_output=True)
+async def oc_task_get(task_id: str) -> dict[str, Any]:
+    from .control import engine as control_engine
+
+    return await asyncio.to_thread(control_engine.task_view, _control_store(), task_id)
+
+
+@mcp.tool(name="oc_task_control", description="Change a task's lifecycle: start, queue, pause, resume, stop, archive, restore or run one planner/worker step.", structured_output=True)
+async def oc_task_control(task_id: str, action: str, reason: str = "operator decision") -> dict[str, Any]:
+    from .control import engine as control_engine
+
+    store = _control_store()
+
+    def work() -> dict[str, Any]:
+        store.require("tasks", task_id)
+        if action == "start":
+            return control_engine.start(store, task_id)
+        if action == "queue":
+            return store.update("tasks", task_id, status="queued")
+        if action == "pause":
+            return control_engine.pause(store, task_id)
+        if action == "resume":
+            return control_engine.resume(store, task_id)
+        if action == "stop":
+            return control_engine.stop(store, task_id, reason)
+        if action == "archive":
+            return control_engine.archive(store, task_id)
+        if action == "restore":
+            return store.update("tasks", task_id, status="paused", archived_at="")
+        raise ValueError(f"unknown task action {action!r}")
+
+    return await asyncio.to_thread(work)
+
+
+@mcp.tool(name="oc_task_chat", description="Inject an operator hint into a task and its exploration graph. Target output is always treated as untrusted data.", structured_output=True)
+async def oc_task_chat(task_id: str, message: str) -> dict[str, Any]:
+    from .control import graph
+
+    store = _control_store()
+
+    def work() -> dict[str, Any]:
+        task = store.require("tasks", task_id)
+        text = message.strip()
+        if not text:
+            raise ValueError("message must not be empty")
+        record = store.create("messages", engagement_id=task["engagement_id"], task_id=task_id, role="operator", content=text[:8000], references=[])
+        node = graph.add_node(store, task["engagement_id"], task_id, "hint", text[:2000], source="operator", payload={"message_id": record["id"]})
+        store.event(task["engagement_id"], task_id, "operator.message", text[:200], message_id=record["id"], node_id=node["id"])
+        return {"message": record, "node_id": node["id"]}
+
+    return await asyncio.to_thread(work)
+
+
+@mcp.tool(name="oc_task_intent", description="Propose a new intent for a task. It enters the planner's queue as an operator-sourced direction and is linked to the goal node.", structured_output=True)
+async def oc_task_intent(task_id: str, title: str, instruction: str = "", priority: int = 0) -> dict[str, Any]:
+    from .control import graph
+
+    store = _control_store()
+
+    def work() -> dict[str, Any]:
+        task = store.require("tasks", task_id)
+        intent = store.create("intents", engagement_id=task["engagement_id"], task_id=task_id, title=title[:200], instruction=(instruction or title)[:4000], status="proposed", priority=priority, source="operator", depth=1)
+        node = graph.add_node(store, task["engagement_id"], task_id, "intent", intent["title"], state="pending", payload={"intent_id": intent["id"]}, source="operator")
+        store.update("intents", intent["id"], node_id=node["id"])
+        return intent
+
+    return await asyncio.to_thread(work)
+
+
+@mcp.tool(name="oc_finding_create", description="Record a security finding in control-plane state. Verification requires separately bound traffic and verbatim quotes.", structured_output=True)
+async def oc_finding_create(engagement_id: str, task_id: str, title: str, severity: str = "info", summary: str = "", detail: str = "", vulnerability: str = "", evidence: str = "", asset_ids: list[str] | None = None) -> dict[str, Any]:
+    from .control import findings
+
+    return await asyncio.to_thread(findings.create, _control_store(), engagement_id, task_id, title, severity=severity, summary=summary, detail=detail, vulnerability=vulnerability, asset_ids=asset_ids or [], evidence=evidence)
+
+
+@mcp.tool(name="oc_finding_verify", description="Check a finding's verbatim quotes against its bound captured responses. Missing quotes block verification and are named in the result.", structured_output=True)
+async def oc_finding_verify(finding_id: str, quotes: list[str] | None = None, traffic_ids: list[str] | None = None, note: str = "") -> dict[str, Any]:
+    from .control import findings
+
+    return await asyncio.to_thread(findings.verify, _control_store(), finding_id, quotes=quotes or [], proof_exchange_ids=traffic_ids or [], note=note)
+
+
+@mcp.tool(name="oc_finding_retest", description="Queue a retest for a finding so its original proof is re-run and a verdict recorded independently of the original worker.", structured_output=True)
+async def oc_finding_retest(finding_id: str, note: str = "") -> dict[str, Any]:
+    from .control import findings
+
+    return await asyncio.to_thread(findings.start_retest, _control_store(), finding_id, note)
+
+
+@mcp.tool(name="oc_traffic_ingest", description="Record captured HTTP exchanges in control-plane state, with bounded bodies, base64 decoding and per-engagement ingest caps.", structured_output=True)
+async def oc_traffic_ingest(engagement_id: str, entries: list[dict[str, Any]]) -> dict[str, Any]:
+    from .control import traffic
+
+    return await asyncio.to_thread(traffic.ingest, _control_store(), engagement_id, entries)
+
+
+@mcp.tool(name="oc_traffic_replay", description="Replay a captured exchange through the engagement scope check, target blocklist and request noise governor, then record the new exchange.", structured_output=True)
+async def oc_traffic_replay(engagement_id: str, exchange_id: str, method: str = "", url: str = "", headers: dict[str, str] | None = None, body: str | None = None) -> dict[str, Any]:
+    from .control import traffic
+
+    return await asyncio.to_thread(
+        traffic.replay, _control_store(), engagement_id, exchange_id,
+        method=method or None, url=url or None, headers=headers or {}, body=body,
+    )
+
+
+@mcp.tool(name="oc_graph_coverage", description="Report the engagement's asset coverage for a task. Tested means an intent or finding anchored the asset, not that a tool proved every endpoint.", structured_output=True)
+async def oc_graph_coverage(engagement_id: str, task_id: str = "") -> dict[str, Any]:
+    from .control import graph
+
+    return await asyncio.to_thread(graph.coverage, _control_store(), engagement_id, task_id or None)
+
+
+@mcp.tool(name="oc_intercept_rule", description="Add an operator approval rule that asks, allows or denies tool calls matching a name, argument, host or URL pattern.", structured_output=True)
+async def oc_intercept_rule(engagement_id: str, name: str, pattern: str, target: str = "tool_name", kind: str = "string", policy: str = "ask", priority: int = 0, note: str = "") -> dict[str, Any]:
+    from .control import intercept
+
+    return await asyncio.to_thread(intercept.add_rule, _control_store(), engagement_id, name, target=target, kind=kind, pattern=pattern, policy=policy, priority=priority, note=note)
+
+
+@mcp.tool(name="oc_approval_decide", description="Record a human decision on a pending tool approval. The agent only resumes when a decision is persisted.", structured_output=True)
+async def oc_approval_decide(approval_id: str, approved: bool, decided_by: str = "human", reason: str = "") -> dict[str, Any]:
+    from .control import intercept
+
+    return await asyncio.to_thread(intercept.decide, _control_store(), approval_id, approved, decided_by=decided_by, reason=reason)
+
+
+@mcp.tool(name="oc_llm_profiles", description="List configured LLM profiles, their failover order and which ones are currently usable.", structured_output=True)
+async def oc_llm_profiles() -> dict[str, Any]:
+    from .control import platform
+
+    def work() -> dict[str, Any]:
+        store = _control_store()
+        return {"profiles": platform.list_profiles(store), "usable": platform.usable(store)}
+
+    return await asyncio.to_thread(work)
+
+
+@mcp.tool(name="oc_control_settings", description="Read effective control-plane settings, worker concurrency and request noise governor state.", structured_output=True)
+async def oc_control_settings(engagement_id: str = "") -> dict[str, Any]:
+    from .control import platform
+    from .control.governor import governor
+
+    def work() -> dict[str, Any]:
+        store = _control_store()
+        return {"settings": platform.all_settings(store, engagement_id), "governor": governor().stats()}
+
+    return await asyncio.to_thread(work)
+
+
+@mcp.tool(name="oc_notify_retry", description="Retry failed notification deliveries for configured channels.", structured_output=True)
+async def oc_notify_retry() -> dict[str, Any]:
+    from .control import platform
+
+    return await asyncio.to_thread(platform.retry_failed, _control_store())
+
+
 def _bind_contracts() -> None:
     """Attach the declared contract and result envelope to every registered tool.
 

@@ -788,6 +788,27 @@ _NATIVE: tuple[ToolContract, ...] = (
         target=True,
         errors=["limit_exceeded", "integrity_mismatch"],
     ),
+    # control plane: the autonomous planner/worker state layer. Only tools whose
+    # public signature requires engagement_id declare requires_engagement; the
+    # rest are scoped by a task, finding or exchange identifier.
+    _native("oc_control_dashboard", "control_plane", Shape.INSPECT, [FILESYSTEM], Scope.ENGAGEMENT),
+    _native("oc_task_create", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, engagement=True, idempotent=False, errors=["limit_exceeded"]),
+    _native("oc_task_list", "control_plane", Shape.SEARCH, [FILESYSTEM], Scope.ENGAGEMENT),
+    _native("oc_task_get", "control_plane", Shape.INSPECT, [FILESYSTEM], Scope.ENGAGEMENT, errors=["not_found"]),
+    _native("oc_task_control", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, idempotent=False, errors=["not_found"]),
+    _native("oc_task_chat", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, idempotent=False, errors=["not_found"]),
+    _native("oc_task_intent", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, idempotent=False, errors=["not_found"]),
+    _native("oc_finding_create", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, engagement=True, idempotent=False, target=True, errors=["not_found"]),
+    _native("oc_finding_verify", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, idempotent=False, errors=["not_found"]),
+    _native("oc_finding_retest", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, idempotent=False, errors=["not_found"]),
+    _native("oc_traffic_ingest", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, engagement=True, destructive=True, idempotent=False, target=True, errors=["limit_exceeded"]),
+    _native("oc_traffic_replay", "control_plane", Shape.OBSERVE, [FILESYSTEM, NETWORK, MUTATION], Scope.URL, engagement=True, destructive=True, open_world=True, idempotent=False, target=True, errors=["scope_denied", "not_found", "timed_out", "connection_failed"]),
+    _native("oc_graph_coverage", "control_plane", Shape.INSPECT, [FILESYSTEM], Scope.ENGAGEMENT, engagement=True),
+    _native("oc_intercept_rule", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, engagement=True, idempotent=False, errors=["invalid_argument"]),
+    _native("oc_approval_decide", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION], Scope.ENGAGEMENT, idempotent=False, errors=["not_found"]),
+    _native("oc_llm_profiles", "control_plane", Shape.INSPECT, [FILESYSTEM], Scope.ENGAGEMENT),
+    _native("oc_control_settings", "control_plane", Shape.INSPECT, [FILESYSTEM], Scope.ENGAGEMENT),
+    _native("oc_notify_retry", "control_plane", Shape.WORKFLOW, [FILESYSTEM, MUTATION, NETWORK], Scope.ENGAGEMENT, idempotent=False, open_world=True),
     # diagnostics
     _native("oc_doctor", "diagnostics", Shape.INSPECT),
 )

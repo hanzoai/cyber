@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cyber-control
+  namespace: cyber
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cyber-control
+  template:
+    metadata:
+      labels:
+        app: cyber-control
+    spec:
+      containers:
+        - name: control
+          image: ghcr.io/hanzoai/opencyber-control:1.0.0-beta.1
+          ports:
+            - containerPort: 8787
+          env:
+            - name: OPENCYBER_CONTROL_HOST
+              value: 0.0.0.0
+            - name: OPENCYBER_STATE_BACKEND
+              value: base
+            - name: HANZO_BASE_URL
+              value: https://base.hanzo.ai
+            - name: OPENCYBER_IAM_MODE
+              value: remote
+            - name: OPENCYBER_CONTROL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cyber-control-secrets
+                  key: control-token
+            - name: HANZO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cyber-control-secrets
+                  key: hanzo-token
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8787
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8787

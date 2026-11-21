@@ -18,14 +18,18 @@ third-party terms.
 the published image, MCP client setup and a synthetic first exercise.
 
 OpenCyber Harness is the execution substrate for authorized security work: one
-container that exposes **253 security MCP tools** over stdio — 171
-executable-backed tools and 82 native ones — across the software and physical
+container that exposes **271 security MCP tools** over stdio — 171
+executable-backed tools and 100 native ones — across the software and physical
 layers: SDR, Wi-Fi, Bluetooth/BLE, NFC/RFID, USB, JTAG/SWD, UART, CAN/automotive,
 logic analyzers, GPS, and IR. It ships isolated engagement workspaces, serial
 sessions, firmware triage, a scoped HTTP workbench, browser automation, an
 audit trail, and offline-ready scanning assets.
 
-It is not an agent. It has no planner, no model, and no network listener. You
+The optional control plane adds an engagement-scoped planner/worker engine, a
+shared asset graph, findings with bound traffic, approval gates and budgets. It
+runs behind the operator console and the `oc_task_*`, `oc_finding_*` and
+`oc_traffic_*` tools. Every worker call still goes through the same scope check,
+approval gate and request governor; target output is always untrusted data. You
 bring an MCP client; the harness supplies the tools, the container, and the
 evidence trail.
 
@@ -37,7 +41,7 @@ API and hardware integrations. Blue teams can analyze supplied files, logs and
 PCAPs offline, build timelines, and export independently verifiable evidence.
 Start with the [blue-team guide](docs/BLUE_TEAM.md) for that workflow.
 
-The catalog has 171 executable integrations and 82 native tools. The image
+The catalog has 171 executable integrations and 100 native tools. The image
 includes Nmap, Ncat, Ndiff, Nping, RustScan, AutoRecon, NetExec and
 WPScan, with their local assets. Terrascan is excluded because upstream is
 archived; ScoutSuite is excluded because its sqlitedict dependency has an unresolved critical
@@ -122,7 +126,7 @@ command directly. Exact snippets and the full client matrix are in
 
 ## What a tool result looks like
 
-Every one of the 253 tools returns the same contract block, so a client can
+Every one of the 271 tools returns the same contract block, so a client can
 branch on outcome, coverage, and provenance without special-casing tools:
 
 ```json
@@ -175,8 +179,8 @@ are in [tool result contracts](docs/CONTRACTS.md), [errors](docs/ERRORS.md), and
 
 ## Tool modes
 
-Full mode advertises all 253 tools. Tool schemas cost context; if that is too
-much, compact mode advertises the 82 native tools and dispatches executable
+Full mode advertises all 271 tools. Tool schemas cost context; if that is too
+much, compact mode advertises the 100 native tools and dispatches executable
 tools through `oc_execute`. `oc_catalog` reports both the advertised payload
 size and the catalog digest, so you can see the context cost and whether the
 running server matches the release you pinned:
@@ -215,7 +219,8 @@ Arbitrary shell behavior is available only when the caller deliberately selects
   executable-backed calls, native HTTP tools (`oc_http_request`,
   `oc_graphql_request`, OpenAPI/GraphQL audits, API fuzz, and every HTTP
   workbench request and redirect hop), and the workbench's own session scope.
-  Browser tools remain outside engagement scope enforcement.
+  Browser navigations and requests are checked against the engagement scope
+  and the control-plane target blocklist.
 - `OPENCYBER_OFFLINE=1` fails fast for named internet-dependent features. It is
   not an egress firewall; enforce that at the network layer.
 - The audit log is tamper-evident, not tamper-proof, and executor auditing can
@@ -240,10 +245,12 @@ harness to untrusted clients or targets.
 | [Agent integrations](docs/INTEGRATIONS.md) | OpenCode V2 Code Mode and DeepSeek Harness adapters |
 | [Configuration](docs/CONFIGURATION.md) | Every environment variable and default |
 | [Architecture](docs/ARCHITECTURE.md) | Components, data flow, storage layout |
+| [Cloud launch](docs/CLOUD_LAUNCH.md) | Provision an agentic sandbox in your Hanzo org |
+| [Threat playbook](docs/THREAT_PLAYBOOK.md) | Technique-to-control mapping for autonomous intrusions |
 | [Security model](docs/SECURITY_MODEL.md) | Trust boundary, controls, limitations |
 | [Operations](docs/OPERATIONS.md) | Deployment, hardening, backup, upgrades |
 | [CLI reference](docs/CLI_REFERENCE.md) | Console commands and exit codes |
-| [Tool reference](docs/TOOLS.md) | Generated list of all 253 tools |
+| [Tool reference](docs/TOOLS.md) | Generated list of all 271 tools |
 | [Hardware](docs/HARDWARE.md) | Device passthrough and physical-layer work |
 | [Airgap](docs/AIRGAP.md) | Offline build, export, import, CVE index |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Diagnosis and common failures |

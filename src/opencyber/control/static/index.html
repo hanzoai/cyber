@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenCyber Control</title>
+    <link rel="stylesheet" href="/static/shell/tokens.css" />
+    <link rel="stylesheet" href="/static/app.css" />
+    <link rel="icon" type="image/svg+xml" href="/static/brand/favicon.svg" />
+  </head>
+  <body>
+    <div id="app" class="app-shell hanzogui-shell" aria-busy="true">
+      <aside id="sidebar" class="sidebar"></aside>
+      <div class="main">
+        <header id="topbar" class="topbar"></header>
+        <main id="view" class="view" tabindex="-1"></main>
+      </div>
+    </div>
+    <div id="overlay" class="overlay-root"></div>
+    <div id="toasts" class="toast-stack" role="status" aria-live="polite"></div>
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>

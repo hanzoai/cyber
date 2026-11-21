@@ -1,0 +1,119 @@
+/*
+ * Canonical Hanzo Dev tokens for the cyber capability shell.
+ *
+ * Mirrors @hanzo/gui `pkgs/ui/shell/src/theme.ts`: monochrome chrome, hairline
+ * borders, and the shared HANZO_DEV_SHAPE geometry. Semantic status colors are
+ * the only hues allowed, because severity carries security meaning.
+ *
+ * No CSS framework: this file and shell/index.js are the whole package. A host
+ * that loads neither app.css nor tokens.css still renders the shell correctly
+ * because every consumer of these names has a fallback.
+ */
+
+:root {
+  color-scheme: dark;
+  --hanzo-sidebar: #000000;
+  --hanzo-panel: #0a0a0a;
+  --hanzo-surface: #09090b;
+  --hanzo-ink: #fafafa;
+  --hanzo-ink-muted: #a1a1aa;
+  --hanzo-ink-dim: #71717a;
+  --hanzo-line: rgb(255 255 255 / .10);
+  --hanzo-line-soft: rgb(255 255 255 / .06);
+  --hanzo-line-strong: rgb(255 255 255 / .22);
+  --hanzo-raised: rgb(255 255 255 / .03);
+  --hanzo-hover: rgb(255 255 255 / .06);
+
+  --bg: var(--hanzo-panel);
+  --bg-muted: var(--hanzo-sidebar);
+  --bg-inset: var(--hanzo-surface);
+  --fg: var(--hanzo-ink);
+  --fg-muted: var(--hanzo-ink-muted);
+  --fg-faint: var(--hanzo-ink-dim);
+  --border: var(--hanzo-line);
+  --border-strong: var(--hanzo-line-strong);
+  --primary: var(--hanzo-ink);
+  --primary-fg: #000000;
+  --accent: var(--hanzo-ink);
+
+  --ok: #4ade80;
+  --ok-bg: rgb(74 222 128 / .12);
+  --warn: #fbbf24;
+  --warn-bg: rgb(251 191 36 / .12);
+  --danger: #f87171;
+  --danger-bg: rgb(248 113 113 / .12);
+  --info: #7dd3fc;
+  --info-bg: rgb(125 211 252 / .12);
+  --violet: #c4b5fd;
+  --violet-bg: rgb(196 181 253 / .12);
+
+  /* Single severity scale used by every chip, bar and badge. */
+  --sev-critical: #ec4899;
+  --sev-high: #f87171;
+  --sev-medium: #fbbf24;
+  --sev-low: #a1a1aa;
+  --sev-info: #71717a;
+
+  --radius: 8px;
+  --radius-sm: 8px;
+  --radius-card: 12px;
+  --radius-composer: 16px;
+  --sidebar: 256px;
+  --sidebar-rail: 48px;
+  --topbar-height: 40px;
+  --shadow: 0 24px 60px -16px rgb(0 0 0 / .75);
+
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Light host: the same monochrome hierarchy inverted, never a second brand hue. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --hanzo-sidebar: #ffffff;
+  --hanzo-panel: #fafafa;
+  --hanzo-surface: #f5f5f5;
+  --hanzo-ink: #09090b;
+  --hanzo-ink-muted: #52525b;
+  --hanzo-ink-dim: #71717a;
+  --hanzo-line: rgb(0 0 0 / .10);
+  --hanzo-line-soft: rgb(0 0 0 / .06);
+  --hanzo-line-strong: rgb(0 0 0 / .22);
+  --hanzo-raised: rgb(0 0 0 / .03);
+  --hanzo-hover: rgb(0 0 0 / .06);
+  --primary-fg: #ffffff;
+  --shadow: 0 24px 60px -16px rgb(0 0 0 / .24);
+  --ok: #0e7a4b;
+  --warn: #92610a;
+  --danger: #b8361d;
+  --info: #0e6e87;
+  --violet: #663dbd;
+}
+
+/* @hanzo/gui-style org switcher + account row anchored to the sidebar. */
+.hz-sidebar-footer-slot { margin-top: auto; padding-top: 12px; }
+.hanzogui-shell .sidebar { display: flex; flex-direction: column; }
+.hanzogui-shell .hz-sidebar-footer { display: flex; flex-direction: column; gap: 6px; padding: 8px 6px 4px; border-top: 1px solid var(--border); }
+.hz-org, .hz-account {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0;
+  padding: 6px 8px; border: 1px solid transparent; border-radius: var(--radius);
+  background: transparent; color: var(--fg); cursor: pointer; text-align: left;
+}
+.hz-org:hover, .hz-account:hover { background: var(--hover); border-color: var(--border); }
+.hz-org svg, .hz-account svg { width: 14px; height: 14px; margin-left: auto; flex: 0 0 14px; color: var(--fg-faint); }
+.hz-org-mark, .hz-avatar {
+  display: grid; place-items: center; flex: 0 0 22px; width: 22px; height: 22px;
+  border: 1px solid var(--border-strong); border-radius: 7px; font-size: 10px; font-weight: 600;
+}
+.hz-avatar { border-radius: 999px; }
+.hz-org-name, .hz-account-name { font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hz-account-mail { font-size: 10.5px; color: var(--fg-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell.collapsed .hz-org-name, .app-shell.collapsed .hz-account span:not(.hz-avatar), .app-shell.collapsed .hz-sidebar-footer svg { display: none; }
+
+/* The shell owns these three dimensions; views must not invent their own. */
+.hanzogui-shell .topbar { height: var(--topbar-height); flex-basis: var(--topbar-height); }
+.hanzogui-shell .sidebar { width: var(--sidebar); flex-basis: var(--sidebar); }
+.hanzogui-shell.collapsed .sidebar { width: var(--sidebar-rail); flex-basis: var(--sidebar-rail); }
+.hanzogui-shell .card { border-radius: var(--radius-card); }
+.hanzogui-shell .btn, .hanzogui-shell .input, .hanzogui-shell .select { border-radius: var(--radius); }
+.hanzogui-shell .drawer-body, .hanzogui-shell .chat-composer { border-radius: var(--radius-composer); }

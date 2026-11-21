@@ -32,6 +32,8 @@ dependencies = [
   "mcp>=2.3,<3",
   "playwright==1.64.1",
   "requests>=2.31",
+  "starlette>=1.10,<2",
+  "uvicorn>=0.54,<1",
 ]
 
 [project.urls]
@@ -48,6 +50,7 @@ opencyber-doctor = "opencyber.doctor:main"
 opencyber-assets = "opencyber.assets:main"
 opencyber-hardware = "opencyber.hardware:main"
 opencyber-poc = "opencyber.poc_approval:main"
+opencyber-control = "opencyber.control.api:main"
 
 [project.optional-dependencies]
 test = ["mcp>=2.3,<3", "packaging>=24.2", "requests>=2.31"]

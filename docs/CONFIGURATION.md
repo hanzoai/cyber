@@ -21,6 +21,9 @@ These are read by the Python server, doctor, and CLI processes inside the contai
 | `OPENCYBER_CONTROL_PORT` | `8787` | `control/api.py` at import | Port the control-plane HTTP surface binds to. |
 | `OPENCYBER_CONTROL_ALLOW_REMOTE` | off | `control/api.py` per request | Allows non-loopback clients when no operator token is set. Used only by the local `hanzo up` overlay; production uses IAM. |
 | `OPENCYBER_LOCAL_PORT` | `8788` | `scripts/hanzo-up-local.sh` | Host port forwarded to the in-cluster control Service. |
+| `OPENCYBER_ENGINE_URL` | DGX native engine | `scripts/dev-local.sh`, `scripts/seed-demo.py` | Chat-completions endpoint of the Hanzo native engine. |
+| `OPENCYBER_LOG` | `/tmp/opencyber-control.log` | `scripts/dev-local.sh` | Log file for the locally started control plane. |
+| `OPENCYBER_STATE_DB` | `/tmp/opencyber-control.db` | `scripts/dev-local.sh` | SQLite file used for local conformance/demo state. |
 | `OPENCYBER_TOOL_CATEGORIES` | empty (all) | `server.py` at import | Comma-separated executable categories to advertise individually. Ignored in compact mode. |
 | `OPENCYBER_ENFORCE_SCOPE` | off | `policy.py` per call | Enables argv scope checks for executable-backed tools and host checks for native HTTP tools. Native HTTP calls then require `engagement_id`. |
 | `OPENCYBER_ALLOW_UNSCOPED_EXECUTION` | off | `policy.py` per call | Under scope enforcement, allows `oc_bash` and `oc_python` to run without a target check. |

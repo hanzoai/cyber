@@ -6,6 +6,20 @@ real platform operation: `POST /v1/platform/run` creates or converges an
 Application in `tenant-<org>` derived from the validated IAM identity, and bills
 that org. The control plane never guesses or accepts an org in the request body.
 
+## Local native-engine dev loop
+
+```sh
+./scripts/dev-local.sh                       # control plane -> DGX hanzo-engine
+OPENCYBER_STATE_DB=/tmp/opencyber-control.db \
+  OPENCYBER_CONTROL_URL=http://127.0.0.1:8787 \
+  .venv/bin/python scripts/seed-demo.py      # demo engagement (idempotent)
+node scripts/screenshot-all.mjs              # 54 console screenshots
+```
+
+`dev-local.sh` strips any global `OPENAI_API_KEY` so it is not sent to the local
+engine, which would return 401. All three scripts survive a machine restart;
+the demo state lives in `/tmp/opencyber-control.db`.
+
 ## Local `hanzo up`
 
 No Docker or registry is needed for local development:

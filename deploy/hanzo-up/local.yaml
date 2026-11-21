@@ -2,6 +2,11 @@
 # forwards the Service to the host-run control plane (host IP substituted by
 # scripts/hanzo-up-local.sh). Production uses deployment.yaml + service.yaml.
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: cyber
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cyber-control-proxy

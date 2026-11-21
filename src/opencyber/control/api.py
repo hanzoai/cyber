@@ -500,8 +500,9 @@ def build_routes(console: Console) -> list[Route]:
             {"role": "user", "content": text[:8000]},
         ]
         llm = console.llm or engine.RouterLLM()
+        profile = console.engine(task)._profile(task, False)
         try:
-            reply = await asyncio.to_thread(llm.chat, messages, None)
+            reply = await asyncio.to_thread(llm.chat, messages, None, profile=profile)
         except Exception as exc:  # noqa: BLE001 - a router failure is a result, not a crash
             return _json({"operator": operator, "reply": None, "error": str(exc)[:500]}, 502)
         assistant = store.create(

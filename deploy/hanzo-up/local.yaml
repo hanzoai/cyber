@@ -1,0 +1,80 @@
+# Local-only overlay. No Docker and no image build: a tiny in-cluster TCP proxy
+# forwards the Service to the host-run control plane (host IP substituted by
+# scripts/hanzo-up-local.sh). Production uses deployment.yaml + service.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cyber-control-proxy
+  namespace: cyber
+data:
+  proxy.py: |
+    import socket, threading
+    HOST = "__HOST_IP__"
+
+    def pipe(a, b):
+        try:
+            while True:
+                data = a.recv(65536)
+                if not data:
+                    break
+                b.sendall(data)
+        except Exception:
+            pass
+        finally:
+            for sock in (a, b):
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
+    def handle(client):
+        try:
+            upstream = socket.create_connection((HOST, 8787), 5)
+            threading.Thread(target=pipe, args=(client, upstream), daemon=True).start()
+            pipe(upstream, client)
+        except Exception:
+            client.close()
+
+    server = socket.socket()
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("0.0.0.0", 8787))
+    server.listen(64)
+    while True:
+        client, _ = server.accept()
+        threading.Thread(target=handle, args=(client,), daemon=True).start()
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cyber-control-proxy
+  namespace: cyber
+  labels:
+    app: cyber-control
+spec:
+  containers:
+    - name: proxy
+      image: python:3.12-slim
+      command: ["python", "-u", "/etc/proxy/proxy.py"]
+      ports:
+        - containerPort: 8787
+      volumeMounts:
+        - name: script
+          mountPath: /etc/proxy
+          readOnly: true
+  volumes:
+    - name: script
+      configMap:
+        name: cyber-control-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cyber-control
+  namespace: cyber
+spec:
+  selector:
+    app: cyber-control
+  ports:
+    - name: http
+      port: 8787
+      targetPort: 8787

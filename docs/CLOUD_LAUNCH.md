@@ -6,6 +6,23 @@ real platform operation: `POST /v1/platform/run` creates or converges an
 Application in `tenant-<org>` derived from the validated IAM identity, and bills
 that org. The control plane never guesses or accepts an org in the request body.
 
+## Local `hanzo up`
+
+No Docker or registry is needed for local development:
+
+```sh
+./scripts/hanzo-up-local.sh
+```
+
+The script boots the local k3s microVM, pre-creates the `hanzo` namespace the
+cloud bootstrap expects, starts the control plane on the host, deploys a small
+in-cluster TCP proxy through `deploy/hanzo-up/local.yaml`, and forwards
+`127.0.0.1:8788` to the Service. Open `http://127.0.0.1:8788/`.
+
+This is a development overlay: `OPENCYBER_CONTROL_ALLOW_REMOTE=1` is set because
+the pod reaches the host over the LAN address. Production uses
+`deploy/hanzo-up/Application.yaml` with IAM, KMS-sealed secrets and Hanzo Base.
+
 ## Prerequisites
 
 | Variable | Purpose |

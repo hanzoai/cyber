@@ -46,8 +46,13 @@ export async function renderChat(root, ctx) {
 
   async function drawTranscript() {
     if (!selected) {
-      mount(transcript, emptyState("No task selected", "Pick a task on the left."));
-      mount(composer);
+      mount(transcript, emptyState("No task selected", "Pick a task on the right to start a conversation."));
+      mount(composer, h("div", { class: "hz-composer", style: { opacity: "0.55", pointerEvents: "none" } },
+        h("div", { class: "hz-composer-pill" },
+          h("textarea", { class: "hz-composer-field", rows: "1", placeholder: "Select a task to chat…", readonly: true }),
+          sendButton,
+        ),
+      ));
       return;
     }
     const task = tasks.find((item) => item.id === selected);

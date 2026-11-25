@@ -30,5 +30,7 @@ coverage.xml
 source-capture/
 *.sqlite
 *.sqlite3
+*.db
+bin/
 .DS_Store
 .idea/

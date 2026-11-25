@@ -1,293 +1,117 @@
-<p align="center"><strong>OpenCyber Harness</strong><br>
-A container-native red and blue team security MCP toolkit for agent runtimes.</p>
+# Hanzo Cyber
 
-> **1.0.0-beta.1 is the first public beta and supports Linux amd64 only.**
-> Pull `ghcr.io/mitkox/opencyber:1.0.0-beta.1` and see the
-> [release](https://github.com/mitkox/opencyber/releases/tag/v1.0.0-beta.1)
-> for its image digest, scan evidence, SBOM and checksums. arm64 is not
-> supported. Hardware and production acceptance remain open.
+**Autonomous security operations runtime, MCP server, Rust scanner, and operator console.**  
+Live at **[cyber.hanzo.ai](https://cyber.hanzo.ai)** · Source at **[github.com/hanzoai/cyber](https://github.com/hanzoai/cyber)**.
 
-This beta removes Oracle Instant Client, Microsoft DIA, Metasploit and
-oscanner because no redistribution agreement is recorded for them. The rest of
-the toolkit is included. The recorded unknown-license components and notices
-are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
-[SOURCE_OFFER.md](SOURCE_OFFER.md); licensing metadata follow-ups do not waive
-third-party terms.
+> Use Hanzo Cyber only against systems you own or are explicitly authorized to test.
+> Every network probe and tool action is fail-closed on explicit Rules of Engagement scope.
 
-**Beta testers: start with the [beta guide](docs/BETA_TESTING.md).** It covers
-the published image, MCP client setup and a synthetic first exercise.
+## Architecture
 
-OpenCyber Harness is the execution substrate for authorized security work: one
-container that exposes **271 security MCP tools** over stdio — 171
-executable-backed tools and 100 native ones — across the software and physical
-layers: SDR, Wi-Fi, Bluetooth/BLE, NFC/RFID, USB, JTAG/SWD, UART, CAN/automotive,
-logic analyzers, GPS, and IR. It ships isolated engagement workspaces, serial
-sessions, firmware triage, a scoped HTTP workbench, browser automation, an
-audit trail, and offline-ready scanning assets.
-
-The optional control plane adds an engagement-scoped planner/worker engine, a
-shared asset graph, findings with bound traffic, approval gates and budgets. It
-runs behind the operator console and the `oc_task_*`, `oc_finding_*` and
-`oc_traffic_*` tools. Every worker call still goes through the same scope check,
-approval gate and request governor; target output is always untrusted data. You
-bring an MCP client; the harness supplies the tools, the container, and the
-evidence trail.
-
-> Use this only against systems you own or are explicitly authorized to test.
-> The software provides capability, not permission.
-
-Red teams can run authorized assessments through the existing network, web,
-API and hardware integrations. Blue teams can analyze supplied files, logs and
-PCAPs offline, build timelines, and export independently verifiable evidence.
-Start with the [blue-team guide](docs/BLUE_TEAM.md) for that workflow.
-
-The catalog has 171 executable integrations and 100 native tools. The image
-includes Nmap, Ncat, Ndiff, Nping, RustScan, AutoRecon, NetExec and
-WPScan, with their local assets. Terrascan is excluded because upstream is
-archived; ScoutSuite is excluded because its sqlitedict dependency has an unresolved critical
-advisory. Their optional adapters report the reason when unavailable.
-Custom licenses are permitted with their own notices, source and use terms;
-see the [third-party notices](THIRD_PARTY_NOTICES.md).
-
-## Choose your path
-
-| You want to… | Start here |
-| --- | --- |
-| Try the beta and report a reproducible problem | [Beta testing](docs/BETA_TESTING.md) |
-| Run assessments with an MCP-capable agent | [Install](docs/INSTALL.md) → [User guide](docs/USER_GUIDE.md) |
-| Investigate supplied evidence offline | [Blue-team guide](docs/BLUE_TEAM.md) |
-| Integrate OpenCyber into an MCP client or agent runtime | [MCP integration](docs/MCP_INTEGRATION.md) |
-| Understand the design and trust boundary | [Architecture](docs/ARCHITECTURE.md) → [Security model](docs/SECURITY_MODEL.md) |
-| Plan deployment or airgapped operation | [Operations](docs/OPERATIONS.md) → [Airgap](docs/AIRGAP.md) |
+| Component | Stack | Purpose |
+| --- | --- | --- |
+| Control plane & MCP (`cmd/cyber`, `pkg/control`) | Go (`zap-proto/zip`, `hanzoai/sqlite`, `hanzoai/gen`) | Unified `/v1/cyber/*` REST API, OpenAPI 3.1, `/mcp` stdio/HTTP MCP server, ZAP transport, Enso/Zen operator engine, Hanzo microVM `/v1/sandbox` integration |
+| High-speed scanner (`rust/cyber-probe`) | Pure Rust (zero external dependencies) | Concurrent TCP port & banner scanner with fail-closed `--allow-hosts`, secret scanner with strict redaction, deterministic SHA-256 tree verifier |
+| Standalone console (`web/`) | Pure TypeScript (`@hanzo/gui`, `@hanzo/ui`, esbuild) | Monochrome operator console for Overview, Mission graph, Findings + verbatim proof verification, Kai approvals + intercept rules, Traffic inspector, Enso/Zen chat, ATT&CK + CoA, Hardening, and System/Doctor |
 
 ## Quick start
 
-### 1. Pull the public beta image
-
-Use a Linux amd64 Docker engine, Bash and Python 3. The image is public:
+### 1. Install verified release binaries (macOS / Linux, arm64 / amd64)
 
 ```sh
-docker pull ghcr.io/mitkox/opencyber:1.0.0-beta.1
+curl -fsSL https://raw.githubusercontent.com/hanzoai/cyber/main/install.sh | bash
 ```
 
-The release page carries the exact digest, SBOM, Trivy and Grype results and a
-`SHA256SUMS` file. Pin the digest when you need byte-exact reproducibility.
+The installer downloads `SHA256SUMS` first and verifies SHA-256 digests before installing `cyber` and `cyber-probe`.
 
-### 2. Verify the image
+### 2. Run the control plane & diagnostics
 
 ```sh
-docker image inspect ghcr.io/mitkox/opencyber:1.0.0-beta.1 \
-  --format '{{.Id}} {{.Os}}/{{.Architecture}}'
+cyber doctor
+cyber serve --addr 127.0.0.1:8787
+cyber audit verify --data-dir ~/.hanzo/cyber --org local --engagement <engagement-id>
 ```
 
-Confirm `linux/amd64` and compare the digest with the release metadata.
+When `./web/dist` (or `HANZO_CYBER_WEB_DIR` / `--web-dir`) is present, `cyber serve` hosts the standalone `@hanzo/gui` monochrome operator console directly at `http://127.0.0.1:8787/`.
 
-### 3. Start an offline workspace
+Key endpoints exposed by `cyber serve`:
 
-```sh
-if docker container inspect opencyber-beta >/dev/null 2>&1 || \
-   docker volume inspect opencyber-beta >/dev/null 2>&1; then
-  echo "opencyber-beta already exists; choose unused container and volume names" >&2
-else
-  bash scripts/opencyber-run.sh \
-    --profile blue-team --offline \
-    --image ghcr.io/mitkox/opencyber:1.0.0-beta.1 \
-    --name opencyber-beta --volume opencyber-beta
-fi
-```
+- `GET /` — standalone `@hanzo/gui` operator console (Overview, Mission Graph, Findings, Kai Approvals, Traffic, Chat, ATT&CK, CoA, Hardening, System & Doctor)
+- `GET /v1/cyber/health` — runtime liveness, Rust `cyber-probe`, Hanzo Router & microVM sandbox readiness
+- `GET /v1/cyber/dashboard` — engagement counts, severity breakdown, verbatim proof rate
+- `POST /v1/cyber/engagements/seed-demo` — load the synthetic MDTF tactical enclave lab dataset
+- `GET /v1/cyber/tasks/:id/graph` — autonomous reasoning DAG (`goal → intent → finding → kai gate`)
+- `POST /v1/cyber/findings/:id/verify` — verbatim substring proof verification against captured HTTP traffic
+- `POST /v1/cyber/approvals/:id/decide` — Kai risk-gated human approval decisions
+- `POST /v1/cyber/runs` — Kai + Rules-governed execution (native Rust `cyber-probe` or `/v1/sandbox` microVM)
+- `GET /v1/cyber/audit` & `POST /v1/cyber/audit/verify` — credential-redacted, SHA-256 hash-chained audit trail & tamper verification
+- `POST /v1/cyber/chat` — Enso/Zen operator chat grounded in engagement state
+- `GET /.well-known/openapi.json` — live OpenAPI 3.1 specification (30 typed operations)
+- `POST /mcp` — native Model Context Protocol surface (30 typed tools)
 
-The blue-team profile removes networking, capabilities and device passthrough.
-The named volume keeps evidence across container removal. For a source install,
-see [docs/INSTALL.md](docs/INSTALL.md).
-
-### 4. Check the running container
-
-```sh
-docker exec opencyber-beta opencyber-doctor --json
-docker exec -e OPENCYBER_STRICT_CATALOG=1 opencyber-beta opencyber-mcp --self-test
-```
-
-Both checks should exit 0. Doctor reports required tools and assets; the MCP
-self-test checks the advertised catalog. These checks do not qualify every
-tool, device or live integration.
-
-### 5. Connect an MCP client
-
-The server speaks MCP over stdio and publishes no ports:
-
-```sh
-docker exec -i opencyber-beta opencyber-mcp
-```
-
-Claude Code, Codex, OpenCode, Gemini CLI, Cursor, and VS Code can launch that
-command directly. Exact snippets and the full client matrix are in
-[MCP integration](docs/MCP_INTEGRATION.md). Use the container name
-`opencyber-beta` and do not add `-t`.
-
-## What a tool result looks like
-
-Every one of the 271 tools returns the same contract block, so a client can
-branch on outcome, coverage, and provenance without special-casing tools:
+### 3. Connect an MCP client (stdio)
 
 ```json
 {
-  "ok": true,
-  "contract": {"schema_version": 1, "tool": "oc_file_triage", "server_version": "1.0.0-beta.1"},
-  "coverage": {"status": "complete", "examined": null, "total": null, "exhausted": null, "next_offset": null},
-  "limitations": [],
-  "provenance": {"untrusted_content": true, "source": "target"},
-  "evidence": {"id": "oc_ev_9f2c…", "sha256": "9f2c…", "bytes": 4210, "retained": false}
+  "mcpServers": {
+    "hanzo-cyber": {
+      "command": "cyber",
+      "args": ["mcp"]
+    }
+  }
 }
 ```
 
-A refusal is a result too: `ok: false` with a registered `error` code, a
-retryability flag, and a concrete `remediation.action` instead of an opaque
-transport error. Coverage is explicit, so a capped or paged result says
-`partial` rather than looking empty. `provenance.untrusted_content` marks
-target-derived text as data, not instructions.
+### 4. Run `cyber-probe` directly
 
-`oc_catalog` reports the contract digest this server advertises, and
-`opencyber-mcp --self-test` fails closed on a mismatch when
-`OPENCYBER_STRICT_CATALOG=1`. That catches the stale-container failure where an
-old process keeps serving an old tool contract after an upgrade. The full rules
-are in [tool result contracts](docs/CONTRACTS.md), [errors](docs/ERRORS.md), and
-[limits](docs/LIMITS.md).
-
-## What is in the image
-
-- **Software toolchain.** 171 executable integrations across network,
-  enumeration, web, credentials, exploitation, binary analysis, forensics,
-  cloud/container/IaC, and utilities. Optional adapters remain catalogued even
-  when their binaries are excluded for the reasons above.
-  See the generated [tool reference](docs/TOOLS.md).
-- **Physical-layer toolchain.** 63 hardware-category executables and native
-  inventory, readiness, playbook, serial, and firmware tools. Host device
-  passthrough is separate; see [Hardware](docs/HARDWARE.md).
-- **Offline assets.** Nuclei templates, pinned SecLists dictionaries, exploitdb and a generated keyboard-pattern dictionary are baked in and recorded in an asset
-  manifest. See [Airgap](docs/AIRGAP.md).
-- **Engagements.** Every artifact lands under
-  `/workspace/engagements/<engagement_id>/`; there is no shared "current
-  engagement" state.
-- **Evidence.** Executable calls, workspace writes, HTTP workbench requests,
-  browser actions, serial sessions, firmware analysis, and API audit requests
-  are recorded in a hash-chained audit log. Coverage and limits are documented
-  precisely in the [security model](docs/SECURITY_MODEL.md).
-- **CVE-chain PoCs.** CVE chain planning, signed engagement authorizations,
-  single-use run approvals, bounded non-destructive verifiers, and evidence, for
-  authorized research only. See [PoC chains](docs/POC_CHAINS.md) and the
-  [agent integrations](docs/INTEGRATIONS.md).
-
-## Tool modes
-
-Full mode advertises all 271 tools. Tool schemas cost context; if that is too
-much, compact mode advertises the 100 native tools and dispatches executable
-tools through `oc_execute`. `oc_catalog` reports both the advertised payload
-size and the catalog digest, so you can see the context cost and whether the
-running server matches the release you pinned:
+Every `cyber-probe` command emits a deterministic JSON envelope on stdout:
 
 ```sh
-docker run -d --name opencyber-beta -e OPENCYBER_MCP_MODE=compact ...
+# Fail-closed TCP port & banner scan (--allow-hosts is mandatory)
+cyber-probe ports --target 127.0.0.1 --allow-hosts 127.0.0.0/8 --ports 22,80,443,8787
+
+# Secret & credential scan (strictly redacted previews; raw secrets are never printed)
+cyber-probe secrets --path .
+
+# Deterministic SHA-256 directory tree verification
+cyber-probe hash --path ./web/dist
 ```
 
-Narrow the advertised executable set by category:
+### 5. Run with Docker (`ghcr.io/hanzoai/cyber`)
 
 ```sh
--e OPENCYBER_TOOL_CATEGORIES=network,web,enumeration
--e OPENCYBER_TOOL_CATEGORIES=rf,wireless_attack,nfc_rfid,embedded,automotive,gps,ir,usb
+docker run --rm -p 8787:8787 \
+  --read-only --cap-drop=ALL --security-opt no-new-privileges \
+  -v hanzo-cyber-data:/workspace \
+  ghcr.io/hanzoai/cyber:latest
 ```
 
-`OPENCYBER_TOOL_CATEGORIES` has no effect in compact mode; native tools are
-always registered. All configuration variables are documented in
-[Configuration](docs/CONFIGURATION.md).
+The container runs as non-root UID/GID `65532` and bundles `cyber`, `cyber-probe`, and the precompressed `@hanzo/gui` web console at `/opt/hanzo/cyber/web/dist`.
 
-Executable-backed tools take explicit argv arrays and never invoke a shell:
+## Safety & governance model
 
-```json
-{"engagement_id": "eng_…", "arguments": ["-sT", "-p", "80,443", "10.0.0.5"]}
-```
-
-Arbitrary shell behavior is available only when the caller deliberately selects
-`oc_bash`.
-
-## Security posture
-
-- The container is the trust boundary and runs as root because several of the
-  included tools need privileged network access inside it. Harden from the host
-  with the [documented launcher profiles](docs/INSTALL.md#path-b-manual-container);
-  do not use `--privileged`.
-- Scope enforcement is opt-in (`OPENCYBER_ENFORCE_SCOPE=1`) and applies to
-  executable-backed calls, native HTTP tools (`oc_http_request`,
-  `oc_graphql_request`, OpenAPI/GraphQL audits, API fuzz, and every HTTP
-  workbench request and redirect hop), and the workbench's own session scope.
-  Browser navigations and requests are checked against the engagement scope
-  and the control-plane target blocklist.
-- `OPENCYBER_OFFLINE=1` fails fast for named internet-dependent features. It is
-  not an egress firewall; enforce that at the network layer.
-- The audit log is tamper-evident, not tamper-proof, and executor auditing can
-  be disabled with `OPENCYBER_AUDIT=0`. Some non-executor events are
-  best-effort.
-- Evidence artifacts can contain live credentials. Treat the workspace volume as
-  sensitive data.
-
-Read the full [security model](docs/SECURITY_MODEL.md) before exposing the
-harness to untrusted clients or targets.
-
-## Documentation
-
-| Document | Purpose |
-| --- | --- |
-| [Beta testing](docs/BETA_TESTING.md) | First installation, synthetic exercise, expected results and bug reports |
-| [docs/README.md](docs/README.md) | Documentation index |
-| [Install](docs/INSTALL.md) | All supported install paths and verification |
-| [User guide](docs/USER_GUIDE.md) | Engagements, scans, discovery, evidence |
-| [MCP integration](docs/MCP_INTEGRATION.md) | Transports, client config, tool modes |
-| [CVE chain PoCs](docs/POC_CHAINS.md) | Chain planning, signed authorizations and approvals, bounded runs |
-| [Agent integrations](docs/INTEGRATIONS.md) | OpenCode V2 Code Mode and DeepSeek Harness adapters |
-| [Configuration](docs/CONFIGURATION.md) | Every environment variable and default |
-| [Architecture](docs/ARCHITECTURE.md) | Components, data flow, storage layout |
-| [Cloud launch](docs/CLOUD_LAUNCH.md) | Provision an agentic sandbox in your Hanzo org |
-| [Threat playbook](docs/THREAT_PLAYBOOK.md) | Technique-to-control mapping for autonomous intrusions |
-| [Security model](docs/SECURITY_MODEL.md) | Trust boundary, controls, limitations |
-| [Operations](docs/OPERATIONS.md) | Deployment, hardening, backup, upgrades |
-| [CLI reference](docs/CLI_REFERENCE.md) | Console commands and exit codes |
-| [Tool reference](docs/TOOLS.md) | Generated list of all 271 tools |
-| [Hardware](docs/HARDWARE.md) | Device passthrough and physical-layer work |
-| [Airgap](docs/AIRGAP.md) | Offline build, export, import, CVE index |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | Diagnosis and common failures |
-| [Release](docs/RELEASE.md) | Versioning, build, signing, publishing |
+1. **Fail-closed scope enforcement** — Out-of-scope hosts, IPs, and CIDRs are refused before any socket is opened.
+2. **Verbatim proof verification** — Findings can be cryptographically bound to captured HTTP exchanges; exact quotes are verified against response headers/body.
+3. **Kai risk-gated approvals** — High-risk tool invocations require explicit operator approval (`approved`, `always_allow`, or `denied`) governed by Rules of Engagement intercept guardrails.
+4. **Untrusted target data** — Banners, responses, and scanner artifacts are marked untrusted data and strictly redacted for secrets.
+5. **Hanzo IAM & microVM isolation** — Production deployments at `https://cyber.hanzo.ai` authenticate via Hanzo IAM (`hanzo.id`), route inference through Enso (`https://api.hanzo.ai`) to Zen models, and isolate active tooling in Hanzo `/v1/sandbox` microVMs.
 
 ## Development
 
 ```sh
-python -m venv .venv && . .venv/bin/activate
-pip install -e '.[test,dev]'
-make check            # lint, typecheck, docs drift, version aliases, tests
-python -m unittest discover -s tests -v
+make test              # Run Go vet/tests, Rust cargo test, and TS typecheck + unit tests
+make build             # Build bin/cyber, bin/cyber-probe, and web/dist
+make release-binaries  # Cross-compile Go binaries + Rust cyber-probe + SHA256SUMS
 ```
 
-The test suite covers the catalog contract, argv execution and cancellation,
-path isolation, workspace operations, API auditing, the HTTP workbench, hardware
-inventory and serial sessions, firmware triage, audit-chain tamper detection,
-scope enforcement, offline assets, the installer, distribution compliance, and
-the doctor probe. Source installs are for development: the Kali toolchain,
-browser runtime, and baked assets come from the container image.
+Or run each stack independently:
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the repository layout, how to add a
-catalog tool, and the documentation rules. [AGENTS.md](AGENTS.md) gives coding
-agents the same setup commands, contract requirements and release boundaries.
+```sh
+GOWORK=off go test ./...
+cargo test --manifest-path rust/cyber-probe/Cargo.toml
+pnpm --dir web run typecheck && pnpm --dir web run test && pnpm --dir web run build
+```
 
-## Licensing
+## License
 
-The harness source is Apache-2.0. The image is a collection of independently
-licensed software; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md),
-[SOURCE_OFFER.md](SOURCE_OFFER.md), and
-[`compliance/license-policy.json`](compliance/license-policy.json). Components
-whose terms do not permit redistribution in this container are deliberately
-excluded.
-
-## Versioning
-
-`0.x` while the MCP tool contracts settle. Once the surface is frozen, the
-project moves to `1.0.0` and follows semantic versioning for tool names,
-arguments, and result fields. Release history is in
-[CHANGELOG.md](CHANGELOG.md).
+Apache-2.0 — see [LICENSE](LICENSE).

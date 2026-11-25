@@ -1,0 +1,17 @@
+shamefullyHoist: true
+minimumReleaseAge: 0
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  '@hanzo/gui': 8.4.5
+  '@hanzogui/core': 8.4.5
+  '@hanzogui/web': 8.4.5
+  '@hanzogui/react-native-web-lite': 8.4.5
+  '@hanzogui/react-native-svg': 8.4.5
+  '@hanzo/ui': 8.33.11
+  '@hanzo/design': 0.5.45
+  '@hanzo/appearance': 0.2.15
+  react-native: npm:@hanzogui/react-native-web-lite@8.4.5
+  react-is: 19.2.8

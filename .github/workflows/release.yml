@@ -1,0 +1,230 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: hanzoai/cyber
+
+jobs:
+  go-binaries:
+    name: Build Go cyber (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Cross-compile cyber
+        env:
+          GOWORK: "off"
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist/release
+          out="dist/release/cyber-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
+          go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/cyber
+          chmod +x "$out" || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyber-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/release/cyber-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+          if-no-files-found: error
+
+  rust-binaries:
+    name: Build Rust cyber-probe (${{ matrix.os_label }}/${{ matrix.arch_label }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            os_label: linux
+            arch_label: amd64
+            ext: ""
+            musl: true
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            os_label: linux
+            arch_label: arm64
+            ext: ""
+            musl: true
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            os_label: darwin
+            arch_label: arm64
+            ext: ""
+            musl: false
+          - runner: macos-15
+            target: x86_64-apple-darwin
+            os_label: darwin
+            arch_label: amd64
+            ext: ""
+            musl: false
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            os_label: windows
+            arch_label: amd64
+            ext: ".exe"
+            musl: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install musl tools
+        if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build cyber-probe
+        shell: bash
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: |
+          cargo build --release --manifest-path rust/cyber-probe/Cargo.toml --target ${{ matrix.target }}
+          mkdir -p dist/release
+          cp "rust/cyber-probe/target/${{ matrix.target }}/release/cyber-probe${{ matrix.ext }}" \
+             "dist/release/cyber-probe-${{ matrix.os_label }}-${{ matrix.arch_label }}${{ matrix.ext }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyber-probe-${{ matrix.os_label }}-${{ matrix.arch_label }}
+          path: dist/release/cyber-probe-${{ matrix.os_label }}-${{ matrix.arch_label }}${{ matrix.ext }}
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release with SHA256SUMS
+    runs-on: ubuntu-24.04
+    needs: [go-binaries, rust-binaries]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/release
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        run: |
+          cd dist/release
+          sha256sum * > ../SHA256SUMS.tmp
+          mv ../SHA256SUMS.tmp SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/release/* \
+            --title "Hanzo Cyber $TAG" \
+            --generate-notes \
+            --verify-tag \
+            || gh release upload "$TAG" dist/release/* --clobber
+
+  container:
+    name: Build & push multi-arch ghcr.io/hanzoai/cyber
+    runs-on: ubuntu-24.04
+    needs: [publish-release]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push multi-arch container
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ inputs.tag || github.ref_name }}
+            REVISION=${{ github.sha }}
+            CREATED=${{ steps.meta.outputs.created }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          sbom: true
+          provenance: mode=max
+
+      - name: Attest container image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

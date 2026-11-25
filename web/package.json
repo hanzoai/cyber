@@ -1,0 +1,38 @@
+{
+  "name": "@hanzo/cyber-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone pure TypeScript @hanzo/gui console for Hanzo Cyber",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "node --experimental-strip-types --no-warnings scripts/build.ts",
+    "test": "node --experimental-strip-types --no-warnings --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hanzo/appearance": "0.2.15",
+    "@hanzo/design": "0.5.45",
+    "@hanzo/font": "1.11.0",
+    "@hanzo/gui": "8.4.5",
+    "@hanzo/i18n": "0.6.1",
+    "@hanzo/ui": "8.33.11",
+    "@hanzogui/core": "8.4.5",
+    "@hanzogui/react-native-svg": "8.4.5",
+    "@hanzogui/react-native-web-lite": "8.4.5",
+    "@hanzogui/web": "8.4.5",
+    "lucide-react": "^1.44.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "esbuild": "^0.28.0",
+    "typescript": "7.0.2"
+  }
+}

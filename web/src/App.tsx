@@ -30,12 +30,16 @@ import {
   type CyberGraphNode,
   type CyberHardening,
   type CyberInterceptRule,
+  type CyberLLMConfig,
+  type CyberLLMProvider,
+  type CyberModelInfo,
   type CyberNodeKind,
   type CyberRuleAction,
   type CyberSeverity,
   type CyberTab,
   type CyberTask,
   type CyberTaskGraph,
+  type CyberToolRun,
   type CyberTrafficRecord,
 } from './types.ts';
 import { ApprovalsView } from './views/ApprovalsView.tsx';
@@ -82,6 +86,9 @@ export function App() {
   const [coa, setCoa] = useState<CyberCoaItem[]>([]);
   const [hardening, setHardening] = useState<CyberHardening | null>(null);
   const [doctor, setDoctor] = useState<CyberDoctorReport | null>(null);
+  const [llmConfig, setLlmConfig] = useState<CyberLLMConfig | null>(null);
+  const [models, setModels] = useState<CyberModelInfo[]>([]);
+  const [lastToolRuns, setLastToolRuns] = useState<CyberToolRun[]>([]);
 
   // New engagement form
   const [showNewEng, setShowNewEng] = useState(false);
@@ -121,12 +128,16 @@ export function App() {
       setError(null);
       setAuthNeeded(false);
       try {
-        const [engList, docReport] = await Promise.all([
+        const [engList, docReport, llmRep, modRep] = await Promise.all([
           cyberApi.listEngagements(),
           cyberApi.doctor(),
+          cyberApi.getLLMConfig().catch(() => null),
+          cyberApi.listModels().catch(() => null),
         ]);
         setEngagements(engList);
         setDoctor(docReport);
+        if (llmRep) setLlmConfig(llmRep);
+        if (modRep?.models) setModels(modRep.models);
 
         const activeEng =
           engOverride !== undefined
@@ -395,9 +406,11 @@ export function App() {
       const res = await cyberApi.sendChatMessage({
         engagementId: selectedEngId,
         taskId: selectedTaskId || undefined,
-        message: input.runRound ? `${input.message} (run next verification step)` : input.message,
+        message: input.message,
         model: input.model,
+        runRound: input.runRound,
       });
+      setLastToolRuns(res.toolRuns ?? []);
       if (res.operator && res.assistant) {
         setChatMessages((prev) => [
           ...prev.filter((m) => m.id !== localId),
@@ -411,6 +424,48 @@ export function App() {
         });
         if (refreshed.length > 0) setChatMessages(refreshed);
       }
+      if (res.toolRuns && res.toolRuns.length > 0) {
+        await refresh(selectedEngId);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleUpdateLLM = async (input: {
+    provider: CyberLLMProvider;
+    baseUrl?: string;
+    model?: string;
+    apiKey?: string;
+    clearApiKey?: boolean;
+  }) => {
+    setBusy('llm');
+    setError(null);
+    try {
+      const updated = await cyberApi.updateLLMConfig(input);
+      setLlmConfig(updated);
+      const [docReport, modRep] = await Promise.all([
+        cyberApi.doctor(),
+        cyberApi.listModels({ provider: updated.provider, baseUrl: updated.baseUrl }).catch(() => null),
+      ]);
+      setDoctor(docReport);
+      if (modRep?.models) setModels(modRep.models);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleRefreshModels = async (provider?: string, baseUrl?: string) => {
+    setBusy('models');
+    setError(null);
+    try {
+      const modRep = await cyberApi.listModels({ provider, baseUrl });
+      setModels(modRep.models ?? []);
+      if (modRep.error) setError(modRep.error);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -634,9 +689,14 @@ export function App() {
         {activeTab === 'system' ? (
           <SystemView
             doctor={doctor}
+            llmConfig={llmConfig}
+            models={models}
             loading={loading}
+            busy={busy}
             onRefreshDoctor={refreshDoctor}
             onReconnect={() => refresh()}
+            onUpdateLLM={handleUpdateLLM}
+            onRefreshModels={handleRefreshModels}
           />
         ) : !loading && engagements.length === 0 ? (
           <YStack
@@ -742,9 +802,13 @@ export function App() {
             tasks={tasks}
             selectedTaskId={selectedTaskId}
             messages={chatMessages}
+            llmConfig={llmConfig}
+            models={models}
+            lastToolRuns={lastToolRuns}
             busy={busy}
             onSelectTask={selectTask}
             onSendMessage={handleSendChat}
+            onOpenSettings={() => goTab('system')}
           />
         ) : null}
 

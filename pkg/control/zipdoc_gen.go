@@ -203,6 +203,37 @@ func init() {
 			"RuleView.name":                 "Name labels the rule.",
 		},
 	})
+	zip.Describe("github.com/hanzoai/cyber/pkg/control GET /v1/cyber/llm", zip.Doc{
+		Description: "Returns the active AI provider mode (Hanzo Cloud AI, local private LLM, or offline deterministic) and auto-discovered local inference servers.",
+		Fields: map[string]string{
+			"LLMConfigView.apiKeyConfigured": "APIKeyConfigured reports whether a bearer API key is configured (key value is never returned).",
+			"LLMConfigView.baseUrl":          "BaseURL is the active OpenAI-compatible base URL (for example https://api.hanzo.ai/v1 or http://127.0.0.1:11434/v1).",
+			"LLMConfigView.hanzoCloudUrl":    "HanzoCloudURL is the canonical Hanzo Cloud AI base URL.",
+			"LLMConfigView.localEndpoints":   "LocalEndpoints lists probed local private OpenAI-compatible LLM servers.",
+			"LLMConfigView.model":            "Model is the default model ID used for operator chat and agentic rounds.",
+			"LLMConfigView.provider":         "Provider is the active provider mode: hanzo_cloud, local_private, or offline_deterministic.",
+			"LLMConfigView.ready":            "Ready reports whether live LLM inference is currently usable (local_private requires no API key; hanzo_cloud requires a key).",
+			"LocalLLMCandidate.authRequired": "AuthRequired is true when the endpoint returned HTTP 401/403 (requires bearer token).",
+			"LocalLLMCandidate.baseUrl":      "BaseURL is the OpenAI-compatible base URL (for example http://127.0.0.1:11434/v1).",
+			"LocalLLMCandidate.models":       "Models lists model IDs returned by GET /models when reachable without auth.",
+			"LocalLLMCandidate.name":         "Name identifies the local runtime (for example Ollama, LM Studio / hanzo-engine, MLX / vLLM, Local Hanzo Router, hanzod).",
+			"LocalLLMCandidate.reachable":    "Reachable is true when the endpoint answered a live probe.",
+		},
+	})
+	zip.Describe("github.com/hanzoai/cyber/pkg/control GET /v1/cyber/models", zip.Doc{
+		Description: "Discovers live available AI models from Hanzo Cloud AI or the configured local private LLM server.",
+		Fields: map[string]string{
+			"ModelInfo.id":             "ID is the canonical model identifier passed to /v1/chat/completions.",
+			"ModelInfo.ownedBy":        "OwnedBy identifies the model family or provider when reported.",
+			"ModelInfo.source":         "Source identifies whether this model was discovered from hanzo_cloud or local_private.",
+			"ModelListFilter.baseUrl":  "BaseURL optionally overrides the endpoint to query for live /models discovery.",
+			"ModelListFilter.provider": "Provider optionally overrides which backend to list models from (hanzo_cloud or local_private; defaults to active provider).",
+			"ModelListView.baseUrl":    "BaseURL is the OpenAI-compatible base URL that was queried.",
+			"ModelListView.error":      "Error reports a non-fatal discovery error when the upstream endpoint was unreachable.",
+			"ModelListView.models":     "Models lists available models ordered cleanly (Zen/Enso first for Hanzo Cloud).",
+			"ModelListView.provider":   "Provider is the backend that was queried.",
+		},
+	})
 	zip.Describe("github.com/hanzoai/cyber/pkg/control GET /v1/cyber/tasks", zip.Doc{
 		Description: "Returns cyber tasks belonging to the caller's org, optionally filtered by engagementId.",
 		Fields: map[string]string{
@@ -365,7 +396,7 @@ func init() {
 		},
 	})
 	zip.Describe("github.com/hanzoai/cyber/pkg/control POST /v1/cyber/chat", zip.Doc{
-		Description: "Persists an operator prompt, routes it to the Enso/Zen operator engine grounded in engagement state, and returns both turns.",
+		Description: "Persists an operator prompt, routes it to Hanzo Cloud AI or a local private LLM with optional Kai-gated agentic tool calling, and returns both turns.",
 		Fields: map[string]string{
 			"ChatMessageView.content":      "Content holds the message body.",
 			"ChatMessageView.createdAt":    "CreatedAt is the message timestamp in Unix milliseconds.",
@@ -378,11 +409,14 @@ func init() {
 			"ChatMessageView.taskId":       "TaskID links the message to its task when set.",
 			"ChatSendReq.engagementId":     "EngagementID grounds the operator turn in a specific engagement.",
 			"ChatSendReq.message":          "Message is the operator prompt text.",
-			"ChatSendReq.model":            "Model optionally selects a specific Enso/Zen model (defaults to enso-auto).",
+			"ChatSendReq.model":            "Model optionally selects a specific Enso, Zen, or local private model.",
+			"ChatSendReq.runRound":         "RunRound enables bounded Kai-gated autonomous tool calling during this turn when true.",
 			"ChatSendReq.taskId":           "TaskID optionally scopes the operator turn to a task.",
-			"ChatTurnView.assistant":       "Assistant is the persisted Enso/Zen assistant reply.",
+			"ChatTurnView.assistant":       "Assistant is the persisted assistant reply.",
 			"ChatTurnView.offline":         "Offline is true when the deterministic local fallback synthesized the reply.",
 			"ChatTurnView.operator":        "Operator is the persisted operator message.",
+			"ChatTurnView.provider":        "Provider identifies the AI backend used (hanzo_cloud, local_private, or offline_deterministic).",
+			"ChatTurnView.toolRuns":        "ToolRuns lists real Kai-governed tool executions performed during an agentic round.",
 		},
 	})
 	zip.Describe("github.com/hanzoai/cyber/pkg/control POST /v1/cyber/engagements", zip.Doc{
@@ -579,6 +613,28 @@ func init() {
 			"TrafficView.statusCode":           "StatusCode is the HTTP response status code.",
 			"TrafficView.taskId":               "TaskID links the exchange to a task when present.",
 			"TrafficView.url":                  "URL is the full request URL.",
+		},
+	})
+	zip.Describe("github.com/hanzoai/cyber/pkg/control PUT /v1/cyber/llm", zip.Doc{
+		Description: "Switches the active AI provider between Hanzo Cloud AI (api.hanzo.ai), a local private OpenAI-compatible LLM, or offline deterministic mode.",
+		Fields: map[string]string{
+			"LLMConfigView.apiKeyConfigured": "APIKeyConfigured reports whether a bearer API key is configured (key value is never returned).",
+			"LLMConfigView.baseUrl":          "BaseURL is the active OpenAI-compatible base URL (for example https://api.hanzo.ai/v1 or http://127.0.0.1:11434/v1).",
+			"LLMConfigView.hanzoCloudUrl":    "HanzoCloudURL is the canonical Hanzo Cloud AI base URL.",
+			"LLMConfigView.localEndpoints":   "LocalEndpoints lists probed local private OpenAI-compatible LLM servers.",
+			"LLMConfigView.model":            "Model is the default model ID used for operator chat and agentic rounds.",
+			"LLMConfigView.provider":         "Provider is the active provider mode: hanzo_cloud, local_private, or offline_deterministic.",
+			"LLMConfigView.ready":            "Ready reports whether live LLM inference is currently usable (local_private requires no API key; hanzo_cloud requires a key).",
+			"LocalLLMCandidate.authRequired": "AuthRequired is true when the endpoint returned HTTP 401/403 (requires bearer token).",
+			"LocalLLMCandidate.baseUrl":      "BaseURL is the OpenAI-compatible base URL (for example http://127.0.0.1:11434/v1).",
+			"LocalLLMCandidate.models":       "Models lists model IDs returned by GET /models when reachable without auth.",
+			"LocalLLMCandidate.name":         "Name identifies the local runtime (for example Ollama, LM Studio / hanzo-engine, MLX / vLLM, Local Hanzo Router, hanzod).",
+			"LocalLLMCandidate.reachable":    "Reachable is true when the endpoint answered a live probe.",
+			"UpdateLLMConfigReq.apiKey":      "APIKey optionally sets or clears the in-memory runtime API key (never written to SQLite or audit logs).",
+			"UpdateLLMConfigReq.baseUrl":     "BaseURL sets the OpenAI-compatible base URL (defaults to https://api.hanzo.ai/v1 for hanzo_cloud or http://127.0.0.1:11434/v1 for local_private).",
+			"UpdateLLMConfigReq.clearApiKey": "ClearAPIKey clears the runtime API key when true.",
+			"UpdateLLMConfigReq.model":       "Model sets the default model ID (for example enso-auto, zen-coder, qwen3:32b, llama3.3).",
+			"UpdateLLMConfigReq.provider":    "Provider selects hanzo_cloud, local_private, or offline_deterministic.",
 		},
 	})
 }

@@ -99,12 +99,6 @@ jobs:
             arch_label: arm64
             ext: ""
             musl: false
-          - runner: macos-15
-            target: x86_64-apple-darwin
-            os_label: darwin
-            arch_label: amd64
-            ext: ""
-            musl: false
           - runner: windows-2022
             target: x86_64-pc-windows-msvc
             os_label: windows
@@ -121,23 +115,28 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.os_label == 'darwin' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.target }}
 
       - name: Build cyber-probe
         shell: bash
         env:
           RUSTFLAGS: "-D warnings"
         run: |
-          cargo build --release --manifest-path rust/cyber-probe/Cargo.toml --target ${{ matrix.target }}
           mkdir -p dist/release
+          cargo build --release --manifest-path rust/cyber-probe/Cargo.toml --target ${{ matrix.target }}
           cp "rust/cyber-probe/target/${{ matrix.target }}/release/cyber-probe${{ matrix.ext }}" \
              "dist/release/cyber-probe-${{ matrix.os_label }}-${{ matrix.arch_label }}${{ matrix.ext }}"
+          if [ "${{ matrix.os_label }}" = "darwin" ]; then
+            cargo build --release --manifest-path rust/cyber-probe/Cargo.toml --target x86_64-apple-darwin
+            cp "rust/cyber-probe/target/x86_64-apple-darwin/release/cyber-probe" \
+               "dist/release/cyber-probe-darwin-amd64"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: cyber-probe-${{ matrix.os_label }}-${{ matrix.arch_label }}
-          path: dist/release/cyber-probe-${{ matrix.os_label }}-${{ matrix.arch_label }}${{ matrix.ext }}
+          path: dist/release/cyber-probe-*
           if-no-files-found: error
 
   publish-release:

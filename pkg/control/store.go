@@ -391,6 +391,14 @@ CREATE TABLE IF NOT EXISTS cyber_audit_events (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_cyber_audit_org_eng_seq ON cyber_audit_events(org, engagement_id, seq);
 CREATE INDEX IF NOT EXISTS ix_cyber_audit_org_eng ON cyber_audit_events(org, engagement_id, seq ASC);
+
+CREATE TABLE IF NOT EXISTS cyber_settings (
+  org        TEXT NOT NULL,
+  key        TEXT NOT NULL,
+  value_json TEXT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  PRIMARY KEY (org, key)
+);
 `
 	if _, err := tx.ExecContext(ctx, ddl); err != nil {
 		return fmt.Errorf("migrate cyber schema: %w", err)

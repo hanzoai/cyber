@@ -18,12 +18,16 @@ import type {
   CyberGraphNode,
   CyberHardening,
   CyberInterceptRule,
+  CyberLLMConfig,
+  CyberLLMProvider,
+  CyberModelList,
   CyberNodeKind,
   CyberRuleAction,
   CyberSeedDemoResponse,
   CyberSeverity,
   CyberTask,
   CyberTaskGraph,
+  CyberToolRun,
   CyberTrafficRecord,
 } from './types.ts';
 
@@ -335,11 +339,14 @@ export const cyberApi = {
     taskId?: string;
     message: string;
     model?: string;
+    runRound?: boolean;
   }) =>
     request<{
       operator?: CyberChatMessage;
       assistant?: CyberChatMessage;
       offline?: boolean;
+      provider?: string;
+      toolRuns?: CyberToolRun[];
     }>('/chat', {
       method: 'POST',
       body: JSON.stringify({
@@ -347,7 +354,40 @@ export const cyberApi = {
         taskId: input.taskId,
         message: input.message,
         model: input.model,
+        runRound: Boolean(input.runRound),
       }),
+    }),
+
+  getLLMConfig: () => request<CyberLLMConfig>('/llm'),
+
+  updateLLMConfig: (input: {
+    provider: CyberLLMProvider;
+    baseUrl?: string;
+    model?: string;
+    apiKey?: string;
+    clearApiKey?: boolean;
+  }) =>
+    request<CyberLLMConfig>('/llm', {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+
+  listModels: (filter?: { provider?: string; baseUrl?: string }) =>
+    request<CyberModelList>(
+      `/models${buildQueryString({ provider: filter?.provider, baseUrl: filter?.baseUrl })}`,
+    ),
+
+  executeRun: (input: {
+    engagementId: string;
+    taskId?: string;
+    tool: string;
+    action: string;
+    target: string;
+    args?: Record<string, unknown>;
+  }) =>
+    request<CyberToolRun>('/runs', {
+      method: 'POST',
+      body: JSON.stringify(input),
     }),
 
   doctor: async (): Promise<CyberDoctorReport> => {
@@ -401,7 +441,7 @@ export const cyberApi = {
 
     return {
       status: checks.some((c) => c.status === 'fail') ? 'degraded' : 'ready',
-      version: '1.0.0-beta.3',
+      version: '1.0.0-beta.4',
       runtime: health?.backend || 'Go + zap-proto/zip',
       probeAvailable: health?.probeReady ?? false,
       sandboxMode: health?.sandboxReady ? 'Hanzo microVM (/v1/sandbox)' : 'Local scoped runtime',

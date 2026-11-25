@@ -34,7 +34,7 @@ func newTestApp(t *testing.T, engCfg EngineConfig, mountCfg ...MountConfig) (*zi
 		DisableStartupMessage: true,
 		OpenAPI: zip.OpenAPIConfig{
 			Title:   "Hanzo Cyber Test",
-			Version: "1.0.0-beta.3",
+			Version: "1.0.0-beta.4",
 		},
 		MCP: zip.MCPConfig{
 			Name: "hanzo-cyber-test",
@@ -526,12 +526,12 @@ func TestGovernorScopeRulesAndSandboxGating(t *testing.T) {
 		t.Fatalf("expected awaiting_approval + ApprovalID, got %+v err=%v", held, err)
 	}
 
-	// Allowed in-scope low-risk probe completes offline dry-run cleanly.
-	sim, err := engine.RunInSandbox(ctx, "hanzo", SandboxRunRequest{
+	// Allowed in-scope TLS audit against non-routable .test host executes real dialer and reports real failure (never fabricated).
+	realRes, err := engine.RunInSandbox(ctx, "hanzo", SandboxRunRequest{
 		EngagementID: eng.ID, Tool: "cyber_tls_audit", Action: "Inspect TLS handshake", Target: "https://enclave.mdtf.test/",
 	})
-	if err != nil || sim.Status != "simulated" || !sim.Offline {
-		t.Fatalf("expected offline simulated dry-run, got %+v err=%v", sim, err)
+	if err != nil || realRes.Runtime != "native-tls" || (realRes.Status != "failed" && realRes.Status != "completed") {
+		t.Fatalf("expected real native-tls execution (never simulated), got %+v err=%v", realRes, err)
 	}
 }
 
@@ -569,8 +569,8 @@ func TestZipProjectionsMCPOpenAPIAndOpCallPlane(t *testing.T) {
 			opCount++
 		}
 	}
-	if opCount != 30 {
-		t.Fatalf("expected 30 typed /v1/cyber operations in OpenAPI, got %d", opCount)
+	if opCount != 33 {
+		t.Fatalf("expected 33 typed /v1/cyber operations in OpenAPI, got %d", opCount)
 	}
 
 	// 2. MCP /mcp endpoint is live: initialize + tools/list + tools/call.
@@ -603,8 +603,8 @@ func TestZipProjectionsMCPOpenAPIAndOpCallPlane(t *testing.T) {
 
 	listRes := mcpCall(`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
 	tools := listRes["result"].(map[string]any)["tools"].([]any)
-	if len(tools) != 30 {
-		t.Fatalf("MCP tools/list returned %d tools, want 30", len(tools))
+	if len(tools) != 33 {
+		t.Fatalf("MCP tools/list returned %d tools, want 33", len(tools))
 	}
 	healthToolName := zip.ID("GET", "/v1/cyber/health")
 	foundHealth := false

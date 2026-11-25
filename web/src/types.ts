@@ -263,6 +263,51 @@ export interface CyberSeedDemoResponse {
   rules: number;
 }
 
+export type CyberLLMProvider = 'hanzo_cloud' | 'local_private' | 'offline_deterministic';
+
+export interface CyberLocalEndpoint {
+  name: string;
+  baseUrl: string;
+  reachable: boolean;
+  authRequired: boolean;
+  models?: string[];
+}
+
+export interface CyberLLMConfig {
+  provider: CyberLLMProvider;
+  baseUrl: string;
+  model: string;
+  apiKeyConfigured: boolean;
+  ready: boolean;
+  hanzoCloudUrl: string;
+  localEndpoints?: CyberLocalEndpoint[];
+}
+
+export interface CyberModelInfo {
+  id: string;
+  ownedBy?: string;
+  source: string;
+}
+
+export interface CyberModelList {
+  provider: string;
+  baseUrl: string;
+  models: CyberModelInfo[];
+  error?: string;
+}
+
+export interface CyberToolRun {
+  id: string;
+  runtime: string;
+  status: string;
+  output?: string;
+  approvalId?: string;
+  riskScore: number;
+  riskLevel: string;
+  rationale: string;
+  offline: boolean;
+}
+
 export function severityOrder(s: string): number {
   switch (s.toLowerCase()) {
     case 'critical':

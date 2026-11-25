@@ -40,7 +40,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 # Stage 4: Minimal hardened non-root runtime image
 FROM alpine:3.21 AS runtime
 
-ARG VERSION=1.0.0-beta.3
+ARG VERSION=1.0.0-beta.4
 ARG REVISION=unknown
 ARG CREATED=unknown
 

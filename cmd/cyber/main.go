@@ -28,7 +28,7 @@ import (
 	"github.com/zap-proto/zip/middleware"
 )
 
-var version = "1.0.0-beta.3"
+var version = "1.0.0-beta.4"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -436,6 +436,7 @@ func runDoctor(args []string) error {
 		}
 	}
 	cfg := engine.Config()
+	llmCfg := engine.GetLLMConfig(ctx, "local", true)
 	webDir := resolveWebDir("")
 
 	report := map[string]any{
@@ -452,12 +453,16 @@ func runDoctor(args []string) error {
 		"webConsoleReady": webDir != "",
 		"webDir":          webDir,
 		"auditChainReady": true,
+		"llmProvider":     llmCfg.Provider,
+		"llmBaseUrl":      llmCfg.BaseURL,
+		"llmReady":        llmCfg.Ready,
+		"localEndpoints":  llmCfg.LocalEndpoints,
 		"routerUrl":       cfg.RouterURL,
 		"routerReady":     engine.RouterConfigured(),
 		"sandboxUrl":      cfg.SandboxURL,
 		"sandboxReady":    engine.SandboxConfigured(),
 		"genRuntime":      cfg.GenRuntime,
-		"defaultModel":    cfg.Model,
+		"defaultModel":    llmCfg.Model,
 		"offlineFallback": !cfg.DisableOfflineFallback,
 	}
 
@@ -474,7 +479,7 @@ func runDoctor(args []string) error {
 	fmt.Printf("  Rust probe   : ready=%v (%s)\n", engine.ProbeConfigured(), engine.ProbePath())
 	fmt.Printf("  Web console  : ready=%v (%s)\n", webDir != "", webDir)
 	fmt.Printf("  Audit chain  : SHA-256 hash-chained (offline verifiable)\n")
-	fmt.Printf("  Hanzo Router : %s (configured=%v, model=%s)\n", cfg.RouterURL, engine.RouterConfigured(), cfg.Model)
+	fmt.Printf("  AI provider  : %s (%s, ready=%v, model=%s)\n", llmCfg.Provider, llmCfg.BaseURL, llmCfg.Ready, llmCfg.Model)
 	fmt.Printf("  Hanzo Sandbox: %s (configured=%v, runtime=%s)\n", cfg.SandboxURL, engine.SandboxConfigured(), cfg.GenRuntime)
 	return nil
 }

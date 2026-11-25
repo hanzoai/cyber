@@ -104,6 +104,9 @@ func Mount(app *zip.App, store *Store, engine *Engine, cfgs ...MountConfig) {
 	g.Post("/runs", o.executeRun, zip.WithStatus(http.StatusCreated))
 	g.Get("/audit", o.listAudit)
 	g.Post("/audit/verify", o.verifyAudit)
+	g.Get("/llm", o.getLLMConfig)
+	g.Put("/llm", o.updateLLMConfig)
+	g.Get("/models", o.listModels)
 
 	g.Get("/tools", o.listTools)
 }
@@ -774,7 +777,7 @@ type ChatList struct {
 	Data []ChatMessageView `json:"data"`
 }
 
-// ChatSendReq submits an operator message to the autonomous Enso/Zen cyber operator.
+// ChatSendReq submits an operator message to the autonomous cyber operator (Hanzo Cloud AI or local private LLM).
 type ChatSendReq struct {
 	// EngagementID grounds the operator turn in a specific engagement.
 	EngagementID string `json:"engagementId"`
@@ -782,18 +785,24 @@ type ChatSendReq struct {
 	TaskID string `json:"taskId"`
 	// Message is the operator prompt text.
 	Message string `json:"message" validate:"required"`
-	// Model optionally selects a specific Enso/Zen model (defaults to enso-auto).
+	// Model optionally selects a specific Enso, Zen, or local private model.
 	Model string `json:"model"`
+	// RunRound enables bounded Kai-gated autonomous tool calling during this turn when true.
+	RunRound bool `json:"runRound"`
 }
 
-// ChatTurnView returns both the recorded operator message and the Enso/Zen reply.
+// ChatTurnView returns the recorded operator message, assistant reply, provider, and any executed governed tool runs.
 type ChatTurnView struct {
 	// Operator is the persisted operator message.
 	Operator ChatMessageView `json:"operator"`
-	// Assistant is the persisted Enso/Zen assistant reply.
+	// Assistant is the persisted assistant reply.
 	Assistant ChatMessageView `json:"assistant"`
 	// Offline is true when the deterministic local fallback synthesized the reply.
 	Offline bool `json:"offline"`
+	// Provider identifies the AI backend used (hanzo_cloud, local_private, or offline_deterministic).
+	Provider string `json:"provider,omitempty"`
+	// ToolRuns lists real Kai-governed tool executions performed during an agentic round.
+	ToolRuns []SandboxRunResult `json:"toolRuns,omitempty"`
 }
 
 // ToolFilter narrows the Hanzo Cyber tool catalog query.
@@ -1973,9 +1982,9 @@ func (o ops) listChat(ctx context.Context, in *ChatFilter) (*ChatList, error) {
 	return &ChatList{Data: out}, nil
 }
 
-// sendChat persists an operator prompt, routes it to the Enso/Zen operator engine grounded in engagement state, and returns both turns.
+// sendChat persists an operator prompt, routes it to Hanzo Cloud AI or a local private LLM with optional Kai-gated agentic tool calling, and returns both turns.
 func (o ops) sendChat(ctx context.Context, in *ChatSendReq) (*ChatTurnView, error) {
-	org, _, err := o.authorize(ctx)
+	org, actor, err := o.authorize(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1992,7 +2001,10 @@ func (o ops) sendChat(ctx context.Context, in *ChatSendReq) (*ChatTurnView, erro
 			return nil, zip.Errorf(500, "get engagement: %v", err)
 		}
 	}
-	res, err := o.engine.Chat(ctx, org, engID, strings.TrimSpace(in.TaskID), msg, strings.TrimSpace(in.Model))
+	res, err := o.engine.ChatWithOptions(ctx, org, engID, strings.TrimSpace(in.TaskID), msg, strings.TrimSpace(in.Model), ChatOptions{
+		Actor:      actor,
+		RunAgentic: in.RunRound,
+	})
 	if err != nil {
 		return nil, zip.Errorf(502, "operator chat failed: %v", err)
 	}
@@ -2000,7 +2012,48 @@ func (o ops) sendChat(ctx context.Context, in *ChatSendReq) (*ChatTurnView, erro
 		Operator:  toChatMessageView(res.Operator),
 		Assistant: toChatMessageView(res.Assistant),
 		Offline:   res.Offline,
+		Provider:  res.Provider,
+		ToolRuns:  res.ToolRuns,
 	}, nil
+}
+
+// getLLMConfig returns the active AI provider mode (Hanzo Cloud AI, local private LLM, or offline deterministic) and auto-discovered local inference servers.
+func (o ops) getLLMConfig(ctx context.Context, _ *NoIn) (*LLMConfigView, error) {
+	org, _, err := o.authorize(ctx)
+	if err != nil {
+		return nil, err
+	}
+	v := o.engine.GetLLMConfig(ctx, org, true)
+	return &v, nil
+}
+
+// updateLLMConfig switches the active AI provider between Hanzo Cloud AI (api.hanzo.ai), a local private OpenAI-compatible LLM, or offline deterministic mode.
+func (o ops) updateLLMConfig(ctx context.Context, in *UpdateLLMConfigReq) (*LLMConfigView, error) {
+	org, actor, err := o.authorize(ctx)
+	if err != nil {
+		return nil, err
+	}
+	v, err := o.engine.UpdateLLMConfig(ctx, org, *in)
+	if err != nil {
+		return nil, zip.ErrBadRequest(err.Error())
+	}
+	o.recordAudit(ctx, org, "", "llm.config_updated", actor, map[string]any{
+		"provider": v.Provider,
+		"base_url": v.BaseURL,
+		"model":    v.Model,
+		"ready":    v.Ready,
+	})
+	return &v, nil
+}
+
+// listModels discovers live available AI models from Hanzo Cloud AI or the configured local private LLM server.
+func (o ops) listModels(ctx context.Context, in *ModelListFilter) (*ModelListView, error) {
+	org, _, err := o.authorize(ctx)
+	if err != nil {
+		return nil, err
+	}
+	v := o.engine.DiscoverModels(ctx, org, in.Provider, in.BaseURL)
+	return &v, nil
 }
 
 // executeRun enforces Kai risk scoring and Rules of Engagement intercept rules before running a native cyber-probe scan or delegating to Hanzo /v1/sandbox.

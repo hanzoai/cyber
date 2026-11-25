@@ -43,11 +43,32 @@ Key endpoints exposed by `cyber serve`:
 - `GET /v1/cyber/tasks/:id/graph` — autonomous reasoning DAG (`goal → intent → finding → kai gate`)
 - `POST /v1/cyber/findings/:id/verify` — verbatim substring proof verification against captured HTTP traffic
 - `POST /v1/cyber/approvals/:id/decide` — Kai risk-gated human approval decisions
-- `POST /v1/cyber/runs` — Kai + Rules-governed execution (native Rust `cyber-probe` or `/v1/sandbox` microVM)
+- `POST /v1/cyber/runs` — Kai + Rules-governed execution (native Rust `cyber-probe`, native HTTP/TLS/DNS tools, local `hanzo-gen`, or Hanzo Cloud `/v1/sandbox` microVM)
+- `GET /v1/cyber/llm`, `PUT /v1/cyber/llm`, `GET /v1/cyber/models` — runtime switching & live model discovery between **Local Private LLM** (Ollama, MLX, llama.cpp, LM Studio, DGX `hanzo-engine`, local router — zero egress & zero API key) and **Hanzo Cloud AI** (`https://api.hanzo.ai/v1` Enso/Zen models)
 - `GET /v1/cyber/audit` & `POST /v1/cyber/audit/verify` — credential-redacted, SHA-256 hash-chained audit trail & tamper verification
-- `POST /v1/cyber/chat` — Enso/Zen operator chat grounded in engagement state
-- `GET /.well-known/openapi.json` — live OpenAPI 3.1 specification (30 typed operations)
-- `POST /mcp` — native Model Context Protocol surface (30 typed tools)
+- `POST /v1/cyber/chat` — multi-turn agentic tool-calling (`runRound: true`) & grounded operator chat via Local Private LLM or Hanzo Cloud AI
+- `GET /.well-known/openapi.json` — live OpenAPI 3.1 specification (33 typed operations)
+- `POST /mcp` — native Model Context Protocol surface (33 typed tools)
+
+### 2b. Local private agentic mode vs. Hanzo Cloud AI
+
+Hanzo Cyber runs **100% locally with zero cloud egress** or connects to **Hanzo Cloud AI (`api.hanzo.ai`)** — switchable at startup via environment variables or at runtime in the console under **System & doctor → AI model & provider** (`PUT /v1/cyber/llm`):
+
+```sh
+# Option A: Local private LLM (Ollama, MLX, llama.cpp, LM Studio, or LAN hanzo-engine — zero API key, zero internet)
+HANZO_LLM_PROVIDER=local_private \
+HANZO_LLM_URL=http://127.0.0.1:11434/v1 \
+HANZO_CYBER_MODEL=qwen2.5-coder:14b \
+cyber serve --addr 127.0.0.1:8787
+
+# Option B: Hanzo Cloud AI (Enso & Zen models via api.hanzo.ai + optional /v1/sandbox microVMs)
+HANZO_LLM_PROVIDER=hanzo_cloud \
+HANZO_API_KEY=<your-hanzo-api-key> \
+HANZO_CYBER_MODEL=enso-auto \
+cyber serve --addr 127.0.0.1:8787
+```
+
+In **agentic round** mode (`runRound: true`), the active model invokes real native tools (`cyber_probe_ports`, `cyber_http_probe`, `cyber_tls_audit`, `cyber_dns_enum`, `cyber_probe_hash`, `record_and_verify_finding`, `cyber_http_exploit`). Every tool call passes through fail-closed Rules of Engagement scope checks and Kai risk gating (high-risk calls pause for operator approval), wraps untrusted target output in `<<<UNTRUSTED-...>>>` boundaries, persists real captured HTTP traffic, verifies findings verbatim, and appends to the SHA-256 hash-chained audit trail.
 
 ### 3. Connect an MCP client (stdio)
 

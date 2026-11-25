@@ -28,7 +28,7 @@ import (
 	"github.com/zap-proto/zip/middleware"
 )
 
-var version = "1.0.0-beta.2"
+var version = "1.0.0-beta.3"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {

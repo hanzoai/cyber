@@ -34,7 +34,7 @@ func newTestApp(t *testing.T, engCfg EngineConfig, mountCfg ...MountConfig) (*zi
 		DisableStartupMessage: true,
 		OpenAPI: zip.OpenAPIConfig{
 			Title:   "Hanzo Cyber Test",
-			Version: "1.0.0-beta.2",
+			Version: "1.0.0-beta.3",
 		},
 		MCP: zip.MCPConfig{
 			Name: "hanzo-cyber-test",

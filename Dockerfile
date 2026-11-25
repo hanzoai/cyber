@@ -3,7 +3,7 @@
 # Stage 1: Build standalone pure TypeScript @hanzo/gui console
 FROM --platform=$BUILDPLATFORM node:24-alpine AS web-builder
 WORKDIR /src/web
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN corepack enable && corepack prepare pnpm@12 --activate
 COPY web/package.json web/pnpm-workspace.yaml web/tsconfig.json web/gui.config.ts web/index.html ./
 COPY web/pnpm-lock.yaml* ./
 RUN pnpm install --prefer-offline
@@ -40,7 +40,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 # Stage 4: Minimal hardened non-root runtime image
 FROM alpine:3.21 AS runtime
 
-ARG VERSION=1.0.0-beta.2
+ARG VERSION=1.0.0-beta.3
 ARG REVISION=unknown
 ARG CREATED=unknown
 

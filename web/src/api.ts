@@ -401,7 +401,7 @@ export const cyberApi = {
 
     return {
       status: checks.some((c) => c.status === 'fail') ? 'degraded' : 'ready',
-      version: '1.0.0-beta.2',
+      version: '1.0.0-beta.3',
       runtime: health?.backend || 'Go + zap-proto/zip',
       probeAvailable: health?.probeReady ?? false,
       sandboxMode: health?.sandboxReady ? 'Hanzo microVM (/v1/sandbox)' : 'Local scoped runtime',

@@ -131,6 +131,7 @@ Or run each stack independently:
 GOWORK=off go test ./...
 cargo test --manifest-path rust/cyber-probe/Cargo.toml
 pnpm --dir web run typecheck && pnpm --dir web run test && pnpm --dir web run build
+pip install -e ".[dev]" && pytest
 ```
 
 ## License
